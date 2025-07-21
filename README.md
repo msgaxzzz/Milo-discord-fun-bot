@@ -1,12 +1,13 @@
 # Milo - A Fun-Focused Discord Bot
 
 Milo is a powerful, multi-functional Discord bot built with Python and discord.py. It's packed with features ranging from economy and games to fun interactions, all designed to bring more entertainment to your server.
+This project uses MIT license.
 
-## ⚙️ Configuration and Setup
+⚙️ Configuration and Setup
 
 Follow these steps to get the bot up and running.
 
-### 1. Clone the Repository
+1. Clone the Repository
 
 First, clone this repository to your local machine or server.
 
