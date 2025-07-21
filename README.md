@@ -18,7 +18,7 @@ Install Dependencies:
 The project's dependencies are listed in the requirements.txt file. Install them using pip:
 pip install -r requirements.txt
 
-
+You need to create a database folder manually.
 
 Create the Configuration File
 The bot requires a config.json file in the root directory to store the bot token.
@@ -29,6 +29,7 @@ Open the file and add the following content:
 }
 
 Replace "YOUR_BOT_TOKEN_HERE" with your actual Discord bot token. You can get this from the https://discord.com/developers/applications
+
 
 
 Running the Bot
