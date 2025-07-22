@@ -16,7 +16,7 @@ echo -e "\nStep 1: Checking for required tools (Git, Python)..."
 
 if ! command -v git &> /dev/null; then
     echo -e "${YELLOW}Error: git is not installed.${NC}"
-    echo "Please install git (e.g., 'sudo apt install git' or 'sudo yum install git') and run this script again."
+    echo "Please install git and run this script again."
     exit 1
 fi
 echo -e "${GREEN}Git is installed.${NC}"
@@ -25,28 +25,34 @@ HAS_PYTHON3=false
 HAS_PYTHON=false
 if command -v python3 &> /dev/null; then
     HAS_PYTHON3=true
+    PY3_VERSION=$(python3 --version 2>&1)
 fi
 if command -v python &> /dev/null; then
     HAS_PYTHON=true
+    PY_VERSION=$(python --version 2>&1)
 fi
 
 if [ "$HAS_PYTHON3" = false ] && [ "$HAS_PYTHON" = false ]; then
     echo -e "${YELLOW}Error: Neither python3 nor python is installed.${NC}"
-    echo "Please install Python 3 and run this script again."
     exit 1
 fi
 
 echo -e "\nAvailable Python versions:"
 if [ "$HAS_PYTHON3" = true ]; then
-    echo " [1] python3 ($(python3 --version))"
+    echo " [1] python3 (${PY3_VERSION})"
 fi
 if [ "$HAS_PYTHON" = true ]; then
-    echo " [2] python ($(python --version))"
+    echo " [2] python (${PY_VERSION})"
 fi
 
 while true; do
-    echo -ne "${YELLOW}Choose Python version to use (1 or 2): ${NC}"
+    echo -ne "${YELLOW}Choose Python version to use (1 or 2, default 1): ${NC}"
     read -r choice
+    choice=$(echo "$choice" | tr -d '[:space:]')
+    if [ -z "$choice" ]; then
+        choice="1"
+    fi
+
     if [ "$choice" = "1" ] && [ "$HAS_PYTHON3" = true ]; then
         PYTHON_CMD="python3"
         break
