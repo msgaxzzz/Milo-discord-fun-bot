@@ -1,6 +1,6 @@
 # Milo - A Feature-Rich Discord Fun Bot
 
-![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 
 Milo is a powerful, multi-functional Discord bot built with modern Python and discord.py. It's designed to be the ultimate entertainment hub for any server, packed with a vast array of features ranging from a full economy system and interactive games to an advanced, web-enabled AI chat.
 
