@@ -1,3 +1,13 @@
 {
-  "DISCORD_TOKEN": "YOUR DISCORD BOT TOKEN"
+  "DISCORD_TOKEN": "your discord token",
+  "OPENAI_API_KEY": "sk-BdIxZUq2Gwfmgyj01Y7HSwv8W6z1MDhPY7hnTqB10",
+  "OPENAI_API_BASE": "https://free.yunwu.ai/v1",
+  "ALLOW_USER_KEYS": true,
+  "DEFAULT_CHAT_MODEL": "gpt-4o-mini",
+  "ALLOWED_CHAT_MODELS": [
+    "gpt-4o-mini",
+    "gpt-4o"
+  ],
+  "GOOGLE_API_KEY": "AIzaSyCYwA6ob_s1G0X7AGheCGkG0GjFaNIT00U",
+  "GOOGLE_CSE_ID": "73b7174bbd0d942a7"
 }
