@@ -144,7 +144,7 @@ class Chat(commands.Cog):
     async def chat(self, interaction: discord.Interaction, prompt: str, model: str = None, search_web: bool = False):
         await interaction.response.defer()
         
-        # --- 新增：优雅处理未配置的情况 ---
+        # Fixed bug.
         if search_web and not self.enable_web_search:
             await interaction.followup.send("Sorry, the web search feature is not configured by the bot owner. I cannot perform a web search.", ephemeral=True)
             return
