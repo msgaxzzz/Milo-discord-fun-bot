@@ -12,7 +12,7 @@ REPO_DIR="Milo-discord-fun-bot"
 
 echo -e "${BLUE}--- Starting Milo Bot Installation ---${NC}"
 
-echo -e "\nStep 1: Checking for required tools (Git, Python, Pip)..."
+echo -e "\nStep 1: Checking for required tools (Git, Python)..."
 
 if ! command -v git &> /dev/null; then
     echo -e "${YELLOW}Error: git is not installed.${NC}"
@@ -22,26 +22,16 @@ fi
 echo -e "${GREEN}Git is installed.${NC}"
 
 PYTHON_CMD=""
-PIP_CMD=""
 if command -v python3 &> /dev/null; then
     PYTHON_CMD="python3"
-    PIP_CMD="pip3"
 elif command -v python &> /dev/null; then
     PYTHON_CMD="python"
-    PIP_CMD="pip"
 else
     echo -e "${YELLOW}Error: Python is not installed.${NC}"
     echo "Please install Python 3 and run this script again."
     exit 1
 fi
 echo -e "${GREEN}Python found (using '$PYTHON_CMD').${NC}"
-
-if ! command -v $PIP_CMD &> /dev/null; then
-    echo -e "${YELLOW}Error: Pip is not installed for $PYTHON_CMD.${NC}"
-    echo "Please install Pip for your Python version and run this script again."
-    exit 1
-fi
-echo -e "${GREEN}Pip found (using '$PIP_CMD').${NC}"
 
 echo -e "\nStep 2: Cloning the Milo Bot repository..."
 if [ -d "$REPO_DIR" ]; then
@@ -55,7 +45,7 @@ cd "$REPO_DIR"
 echo -e "\nEntered project directory: $(pwd)"
 
 echo -e "\nStep 3: Installing Python libraries from requirements.txt..."
-$PIP_CMD install -r requirements.txt
+$PYTHON_CMD -m pip install -r requirements.txt
 echo -e "${GREEN}Python libraries installed successfully.${NC}"
 
 echo -e "\nStep 4: Setting up 'database' directory..."
