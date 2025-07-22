@@ -1,7 +1,7 @@
 {
   "DISCORD_TOKEN": "your discord token",
-  "OPENAI_API_KEY": "sk-BdIxZUq2Gwfmgyj01Y7HSwv8W6z1MDhPY7hnTqB10",
-  "OPENAI_API_BASE": "https://free.yunwu.ai/v1",
+  "OPENAI_API_KEY": "your openai api key",
+  "OPENAI_API_BASE": "you openai api url",
   "ALLOW_USER_KEYS": true,
   "DEFAULT_CHAT_MODEL": "gpt-4o-mini",
   "ALLOWED_CHAT_MODELS": [
