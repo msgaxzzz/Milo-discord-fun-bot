@@ -41,6 +41,17 @@ class FunBot(commands.Bot):
         self.db = await aiosqlite.connect('database/main.db')
         print("Successfully connected to the database.")
         
+        async with self.db.cursor() as cursor:
+            await cursor.execute('''
+                CREATE TABLE IF NOT EXISTS messages (
+                    message_id INTEGER PRIMARY KEY,
+                    guild_id INTEGER,
+                    user_id INTEGER,
+                    timestamp TEXT
+                )
+            ''')
+        await self.db.commit()
+        
         cogs_folder = "cogs"
         for filename in os.listdir(cogs_folder):
             if filename.endswith(".py"):
@@ -58,9 +69,15 @@ class FunBot(commands.Bot):
         print(f'Bot ID: {self.user.id}')
         print('------')
 
-    async def on_message(self, message):
+    async def on_message(self, message: discord.Message):
         if message.author.bot:
             return
+
+        if message.guild:
+            async with self.db.cursor() as cursor:
+                await cursor.execute("INSERT INTO messages (message_id, guild_id, user_id, timestamp) VALUES (?, ?, ?, ?)",
+                                     (message.id, message.guild.id, message.author.id, message.created_at.isoformat()))
+            await self.db.commit()
 
         SPAM_THRESHOLD = 5
         SPAM_TIMEFRAME = 7
@@ -81,6 +98,10 @@ class FunBot(commands.Bot):
                 except Exception as e:
                     print(f"An error occurred during spam cleanup: {e}")
         self.user_message_timestamps[message.author.id] = user_timestamps
+        
+        self.dispatch("message", message)
+        
+        await self.process_commands(message)
 
     async def close(self):
         if self.db:
