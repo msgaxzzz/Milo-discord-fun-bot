@@ -11,20 +11,16 @@ import datetime
 def load_config():
     try:
         with open('config.json', 'r') as f:
-            config = json.load(f)
-        token = config.get('DISCORD_TOKEN')
-        if not token:
-            print("FATAL ERROR: 'DISCORD_TOKEN' key not found or is empty in config.json.")
-            sys.exit(1)
-        return token
+            return json.load(f)
     except FileNotFoundError:
-        print("FATAL ERROR: config.json file not found. Please create it in the root directory.")
+        print("FATAL ERROR: config.json file not found.")
         sys.exit(1)
     except json.JSONDecodeError:
-        print("FATAL ERROR: Could not decode config.json. Please ensure it is a valid JSON format.")
+        print("FATAL ERROR: Could not decode config.json.")
         sys.exit(1)
 
-TOKEN = load_config()
+config = load_config()
+TOKEN = config.get('DISCORD_TOKEN')
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -73,34 +69,7 @@ class FunBot(commands.Bot):
         if message.author.bot:
             return
 
-        if message.guild:
-            async with self.db.cursor() as cursor:
-                await cursor.execute("INSERT INTO messages (message_id, guild_id, user_id, timestamp) VALUES (?, ?, ?, ?)",
-                                     (message.id, message.guild.id, message.author.id, message.created_at.isoformat()))
-            await self.db.commit()
-
-        SPAM_THRESHOLD = 5
-        SPAM_TIMEFRAME = 7
-        now = datetime.datetime.utcnow()
-        user_timestamps = self.user_message_timestamps[message.author.id]
-        user_timestamps.append(now)
-        user_timestamps = [t for t in user_timestamps if (now - t).total_seconds() < SPAM_TIMEFRAME]
-
-        if len(user_timestamps) > SPAM_THRESHOLD:
-            if len(user_timestamps) == SPAM_THRESHOLD + 1:
-                try:
-                    await message.channel.send(f"{message.author.mention}, please slow down! Your recent messages will be deleted.", delete_after=10)
-                    def is_spam_message(m):
-                        return m.author == message.author and (now - m.created_at).total_seconds() < SPAM_TIMEFRAME
-                    await message.channel.purge(limit=SPAM_THRESHOLD + 1, check=is_spam_message, before=message)
-                except discord.Forbidden:
-                    await message.channel.send(f"Warning for {message.author.mention}: Spam detected, but I don't have permission to delete messages.")
-                except Exception as e:
-                    print(f"An error occurred during spam cleanup: {e}")
-        self.user_message_timestamps[message.author.id] = user_timestamps
-        
         self.dispatch("message", message)
-        
         await self.process_commands(message)
 
     async def close(self):
