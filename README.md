@@ -1,11 +1,15 @@
 # Milo - A Feature-Rich Discord Fun Bot
 
-![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
-
-Milo is a powerful, multi-functional Discord bot built with modern Python and discord.py. It's designed to be the ultimate entertainment hub for any server, packed with a vast array of features ranging from a full economy system and interactive games to an advanced, web-enabled AI chat.
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![Python Version](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/)
+[![GitHub stars](https://img.shields.io/github/stars/msgaxzzz/Milo-discord-fun-bot.svg?style=social&label=Star)](https://github.com/msgaxzzz/Milo-discord-fun-bot/stargazers)
 
 ---
 
+Milo is a powerful, multi-functional Discord bot built with modern Python and discord.py.  
+Designed to be the ultimate entertainment hub for any server, Milo features a full economy system, interactive games, and an advanced AI chat with web-enabled search capabilities.
+
+---
 ## ✨ Features
 
 Milo is built with a modular cog architecture, with each module providing a unique set of features.
@@ -82,16 +86,27 @@ For a fresh Linux server, you can use this single command to download the instal
 ```bash
 curl -sSL https://raw.githubusercontent.com/msgaxzzz/Milo-discord-fun-bot/main/install.sh | bash
 
+---
 
 Method 2: Manual Installation
 Follow these steps to set up the bot on your local machine or server.
+
+---
+
 1. Clone the Repository
+```bash
 git clone https://github.com/msgaxzzz/Milo-discord-fun-bot.git
 cd Milo-discord-fun-bot
+
+---
 
 Install Dependencies
 The project's dependencies are listed in requirements.txt. Install them using pip:
 # It's recommended to use python3 and pip3 on most systems
+
+---
+
+```bash
 pip3 install -r requirements.txt@
 
 Create the Database Folder
