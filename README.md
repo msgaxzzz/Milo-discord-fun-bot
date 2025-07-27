@@ -103,8 +103,6 @@ Install Dependencies
 The project's dependencies are listed in requirements.txt. Install them using pip:
 # It's recommended to use python3 and pip3 on most systems
 
----
-
 ```bash
 pip3 install -r requirements.txt
 ```
