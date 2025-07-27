@@ -5,7 +5,7 @@
 [![GitHub stars](https://img.shields.io/github/stars/msgaxzzz/Milo-discord-fun-bot.svg?style=social&label=Star)](https://github.com/msgaxzzz/Milo-discord-fun-bot/stargazers)
 
 ---
-## Update Log For the latest feature updates and fixes, please check our complete update log: [View Update Log] (https://github.com/msgaxzzz/Milo-Discord-fun-bot/blob/main/CHANGELOG.md).
+## Update Log For the latest feature updates and fixes, please check our complete update log: [View Update Log](https://github.com/msgaxzzz/Milo-discord-fun-bot/blob/main/CHANGELOG.md)
 
 ---
 
