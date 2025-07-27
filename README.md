@@ -94,7 +94,6 @@ Follow these steps to set up the bot on your local machine or server.
 ---
 
 1. Clone the Repository
-```bash
 git clone https://github.com/msgaxzzz/Milo-discord-fun-bot.git
 cd Milo-discord-fun-bot
 
