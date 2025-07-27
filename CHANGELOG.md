@@ -1,7 +1,7 @@
 ## Changelog
 
 **v1.0.2** – 2024-07-28
-- Updated the installation script and the installation script now supports windows.
+- Improved the installation script with added support for Windows environments.
 
 
 **v1.0.1** – 2024-07-23
