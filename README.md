@@ -1,7 +1,7 @@
 # Milo - A Feature-Rich Discord Fun Bot
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![Python Version](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/)
+[![Python Version](https://img.shields.io/badge/Python-3.7%2B-blue.svg)](https://www.python.org/downloads/release/python-3110/)
 [![GitHub stars](https://img.shields.io/github/stars/msgaxzzz/Milo-discord-fun-bot.svg?style=social&label=Star)](https://github.com/msgaxzzz/Milo-discord-fun-bot/stargazers)
 
 ---
