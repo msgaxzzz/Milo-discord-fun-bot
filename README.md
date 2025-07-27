@@ -9,8 +9,8 @@
 
 ---
 
-Milo is a powerful, multi-functional Discord bot built with modern Python and discord.py.  
-Designed to be the ultimate entertainment hub for any server, Milo features a full economy system, interactive games, and an advanced AI chat with web-enabled search capabilities.
+## Milo is a powerful, multi-functional Discord bot built with modern Python and discord.py.  
+## Designed to be the ultimate entertainment hub for any server, Milo features a full economy system, interactive games, and an advanced AI chat with web-enabled search capabilities.
 
 ---
 ## ✨ Features
