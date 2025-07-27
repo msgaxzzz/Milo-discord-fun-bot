@@ -83,22 +83,21 @@ There are two ways to set up the bot: a one-line installer for new servers, or a
 ### Method 1: The Easy Way (One-Line Installer)
 For a fresh Linux server, you can use this single command to download the installer script and run it automatically. It will check for dependencies, clone the repo, and set up the project structure for you.
 
+## Installation:
+
 ```bash
 curl -sSL https://raw.githubusercontent.com/msgaxzzz/Milo-discord-fun-bot/main/install.sh | bash
 ```
 ---
 
-Method 2: Manual Installation
+## Method 2: Manual Installation
 Follow these steps to set up the bot on your local machine or server.
 
----
-
-1. Clone the Repository
+## 1. Clone the Repository
 ```bash
 git clone https://github.com/msgaxzzz/Milo-discord-fun-bot.git
 cd Milo-discord-fun-bot
 ```
----
 
 Install Dependencies
 The project's dependencies are listed in requirements.txt. Install them using pip:
