@@ -85,7 +85,7 @@ For a fresh Linux server, you can use this single command to download the instal
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/msgaxzzz/Milo-discord-fun-bot/main/install.sh | bash
-
+```
 ---
 
 Method 2: Manual Installation
@@ -94,9 +94,10 @@ Follow these steps to set up the bot on your local machine or server.
 ---
 
 1. Clone the Repository
+```bash
 git clone https://github.com/msgaxzzz/Milo-discord-fun-bot.git
 cd Milo-discord-fun-bot
-
+```
 ---
 
 Install Dependencies
@@ -106,14 +107,17 @@ The project's dependencies are listed in requirements.txt. Install them using pi
 ---
 
 ```bash
-pip3 install -r requirements.txt@
+pip3 install -r requirements.txt
+```
 
 Create the Database Folder
 The bot uses an SQLite database. You need to create a folder for it manually.
-
+```bash
 mkdir database
-
+```
 
 Running the Bot
 Once the configuration is complete, start the bot with:
+```bash
 python3 main.py
+```
