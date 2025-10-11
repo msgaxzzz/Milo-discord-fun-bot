@@ -3,6 +3,32 @@ from discord import app_commands
 from discord.ext import commands
 import random
 import datetime
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Constants
+DEFAULT_BALANCE = 100
+DAILY_MIN = 100
+DAILY_MAX = 500
+DAILY_COOLDOWN = 86400  # 24 hours
+FREELANCE_MIN = 25
+FREELANCE_MAX = 75
+FREELANCE_COOLDOWN = 900  # 15 minutes
+REGULAR_MIN = 100
+REGULAR_MAX = 300
+REGULAR_COOLDOWN = 3600  # 1 hour
+CRIME_MIN = 500
+CRIME_MAX = 1500
+CRIME_FINE_MIN = 200
+CRIME_FINE_MAX = 750
+CRIME_SUCCESS_RATE = 0.50
+CRIME_COOLDOWN = 21600  # 6 hours
+ROB_SUCCESS_RATE = 0.40
+ROB_MIN_VICTIM_BALANCE = 200
+ROB_COOLDOWN = 1800  # 30 minutes
+SLOTS_MIN_BET = 10
+
 
 class Economy(commands.Cog):
     def __init__(self, bot: commands.Bot):

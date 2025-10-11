@@ -5,30 +5,55 @@ import aiohttp
 import json
 from collections import defaultdict
 import asyncio
+from typing import Optional, List, Dict, Tuple
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Constants
+DEFAULT_API_BASE = "https://api.openai.com/v1"
+DEFAULT_MODEL = "gpt-3.5-turbo"
+MAX_CONVERSATION_HISTORY = 10
+MAX_PERSONA_LENGTH = 500
+DEFAULT_PERSONA = "You are Milo, a friendly and helpful Discord bot. You can access real-time information using the 'google_search' tool for current events or specific data. Keep your answers concise and engaging."
+
 
 class Chat(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.session = aiohttp.ClientSession()
-        self.conversations = defaultdict(list)
+        self.session: Optional[aiohttp.ClientSession] = None
+        self.conversations: Dict[int, List[Dict]] = defaultdict(list)
         self.load_config()
         self.bot.loop.create_task(self.setup_database())
+        self.bot.loop.create_task(self._create_session())
+
+    async def _create_session(self):
+        """Create aiohttp session."""
+        if not self.session:
+            self.session = aiohttp.ClientSession()
+            logger.info("Chat session created")
 
     def load_config(self):
+        """Load chat configuration from config.json."""
         try:
-            with open('config.json', 'r') as f:
+            with open('config.json', 'r', encoding='utf-8') as f:
                 config = json.load(f)
                 self.default_api_key = config.get("OPENAI_API_KEY")
-                self.api_base = config.get("OPENAI_API_BASE", "https://api.openai.com/v1")
+                self.api_base = config.get("OPENAI_API_BASE", DEFAULT_API_BASE)
                 self.allow_user_keys = config.get("ALLOW_USER_KEYS", True)
-                self.default_model = config.get("DEFAULT_CHAT_MODEL", "gpt-3.5-turbo")
-                self.allowed_models = config.get("ALLOWED_CHAT_MODELS", ["gpt-3.5-turbo"])
+                self.default_model = config.get("DEFAULT_CHAT_MODEL", DEFAULT_MODEL)
+                self.allowed_models = config.get("ALLOWED_CHAT_MODELS", [DEFAULT_MODEL])
                 self.google_api_key = config.get("GOOGLE_API_KEY")
                 self.google_cse_id = config.get("GOOGLE_CSE_ID")
-        except (FileNotFoundError, json.JSONDecodeError):
-            self.default_api_key, self.api_base, self.default_model = None, "https://api.openai.com/v1", "gpt-3.5-turbo"
-            self.allow_user_keys, self.allowed_models = True, ["gpt-3.5-turbo"]
-            self.google_api_key, self.google_cse_id = None, None
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            logger.warning(f"Failed to load chat config: {e}")
+            self.default_api_key = None
+            self.api_base = DEFAULT_API_BASE
+            self.default_model = DEFAULT_MODEL
+            self.allow_user_keys = True
+            self.allowed_models = [DEFAULT_MODEL]
+            self.google_api_key = None
+            self.google_cse_id = None
         
         self.enable_web_search = bool(self.google_api_key and self.google_cse_id)
 
