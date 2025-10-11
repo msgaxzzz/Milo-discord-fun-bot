@@ -1,0 +1,8 @@
+# Development dependencies
+-r requirements.txt
+
+# Code quality tools
+flake8>=7.0.0
+black>=24.0.0
+mypy>=1.8.0
+pylint>=3.0.0
