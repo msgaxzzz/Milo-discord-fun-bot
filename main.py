@@ -11,16 +11,13 @@ from typing import Optional
 import logging
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 # Constants
-DATABASE_PATH = 'database/main.db'
-CONFIG_PATH = 'config.json'
-COGS_FOLDER = 'cogs'
+DATABASE_PATH = "database/main.db"
+CONFIG_PATH = "config.json"
+COGS_FOLDER = "cogs"
 SPAM_THRESHOLD = 5
 SPAM_TIMEFRAME = 7  # seconds
 
@@ -28,7 +25,7 @@ SPAM_TIMEFRAME = 7  # seconds
 def load_config() -> dict:
     """Load bot configuration from JSON file."""
     try:
-        with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
             return json.load(f)
     except FileNotFoundError:
         logger.critical(f"FATAL ERROR: {CONFIG_PATH} file not found.")
@@ -39,7 +36,7 @@ def load_config() -> dict:
 
 
 config = load_config()
-TOKEN = config.get('DISCORD_TOKEN')
+TOKEN = config.get("DISCORD_TOKEN")
 
 if not TOKEN:
     logger.critical("FATAL ERROR: DISCORD_TOKEN not found in config.")
@@ -48,6 +45,7 @@ if not TOKEN:
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
+
 
 class FunBot(commands.Bot):
     def __init__(self):
@@ -60,23 +58,25 @@ class FunBot(commands.Bot):
         """Initialize database and load cogs."""
         # Ensure database directory exists
         os.makedirs(os.path.dirname(DATABASE_PATH), exist_ok=True)
-        
+
         # Connect to database
         self.db = await aiosqlite.connect(DATABASE_PATH)
         logger.info("Successfully connected to the database.")
-        
+
         # Initialize database schema
         async with self.db.cursor() as cursor:
-            await cursor.execute('''
+            await cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS messages (
                     message_id INTEGER PRIMARY KEY,
                     guild_id INTEGER,
                     user_id INTEGER,
                     timestamp TEXT
                 )
-            ''')
+            """
+            )
         await self.db.commit()
-              
+
         # Load all cogs
         for filename in os.listdir(COGS_FOLDER):
             if filename.endswith(".py"):
@@ -85,15 +85,15 @@ class FunBot(commands.Bot):
                     logger.info(f"Loaded cog: {filename}")
                 except Exception as e:
                     logger.error(f"Failed to load cog {filename}: {e}")
-        
+
         # Sync slash commands
         await self.tree.sync()
         logger.info("Slash commands have been synced.")
 
     async def on_ready(self):
-        print(f'Logged in as {self.user.name}')
-        print(f'Bot ID: {self.user.id}')
-        print('------')
+        print(f"Logged in as {self.user.name}")
+        print(f"Bot ID: {self.user.id}")
+        print("------")
 
     async def on_message(self, message: discord.Message):
         """Handle incoming messages for logging and spam detection."""
@@ -106,7 +106,7 @@ class FunBot(commands.Bot):
                 async with self.db.cursor() as cursor:
                     await cursor.execute(
                         "INSERT INTO messages (message_id, guild_id, user_id, timestamp) VALUES (?, ?, ?, ?)",
-                        (message.id, message.guild.id, message.author.id, message.created_at.isoformat())
+                        (message.id, message.guild.id, message.author.id, message.created_at.isoformat()),
                     )
                 await self.db.commit()
             except Exception as e:
@@ -116,7 +116,7 @@ class FunBot(commands.Bot):
         now = datetime.datetime.utcnow()
         user_timestamps = self.user_message_timestamps[message.author.id]
         user_timestamps.append(now)
-        
+
         # Clean old timestamps
         user_timestamps = [t for t in user_timestamps if (now - t).total_seconds() < SPAM_TIMEFRAME]
         self.user_message_timestamps[message.author.id] = user_timestamps
@@ -125,13 +125,13 @@ class FunBot(commands.Bot):
             if len(user_timestamps) == SPAM_THRESHOLD + 1:
                 try:
                     await message.channel.send(
-                        f"{message.author.mention}, please slow down! Your recent messages will be deleted.", 
-                        delete_after=10
+                        f"{message.author.mention}, please slow down! Your recent messages will be deleted.",
+                        delete_after=10,
                     )
-                    
+
                     def is_spam_message(m):
                         return m.author == message.author and (now - m.created_at).total_seconds() < SPAM_TIMEFRAME
-                    
+
                     await message.channel.purge(limit=SPAM_THRESHOLD + 1, check=is_spam_message, before=message)
                 except discord.Forbidden:
                     await message.channel.send(
@@ -139,10 +139,10 @@ class FunBot(commands.Bot):
                     )
                 except Exception as e:
                     logger.error(f"An error occurred during spam cleanup: {e}")
-        
+
         # Dispatch for other listeners
         self.dispatch("message", message)
-        
+
         # Process commands
         await self.process_commands(message)
 
@@ -152,22 +152,33 @@ class FunBot(commands.Bot):
             print("Database connection closed.")
         await super().close()
 
+
 bot = FunBot()
+
 
 @bot.tree.error
 async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
     if isinstance(error, app_commands.CommandOnCooldown):
-        await interaction.response.send_message(f"This command is on cooldown. Please try again in {error.retry_after:.2f}s.", ephemeral=True)
+        await interaction.response.send_message(
+            f"This command is on cooldown. Please try again in {error.retry_after:.2f}s.", ephemeral=True
+        )
     elif isinstance(error, app_commands.MissingPermissions):
-        await interaction.response.send_message("You don't have the required permissions to use this command.", ephemeral=True)
+        await interaction.response.send_message(
+            "You don't have the required permissions to use this command.", ephemeral=True
+        )
     elif isinstance(error, app_commands.CheckFailure):
-        await interaction.response.send_message("A check failed, you might not be able to use this command.", ephemeral=True)
+        await interaction.response.send_message(
+            "A check failed, you might not be able to use this command.", ephemeral=True
+        )
     else:
         print(f"An unhandled app command error occurred: {error}")
         if not interaction.response.is_done():
-            await interaction.response.send_message("An unexpected error occurred. Please try again later.", ephemeral=True)
+            await interaction.response.send_message(
+                "An unexpected error occurred. Please try again later.", ephemeral=True
+            )
         else:
             await interaction.followup.send("An unexpected error occurred. Please try again later.", ephemeral=True)
+
 
 print("Configuration loaded. Starting bot...")
 bot.run(TOKEN)

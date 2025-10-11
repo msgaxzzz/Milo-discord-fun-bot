@@ -2,7 +2,6 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import random
-import datetime
 import logging
 
 logger = logging.getLogger(__name__)
@@ -37,12 +36,14 @@ class Economy(commands.Cog):
 
     async def setup_database(self):
         async with self.bot.db.cursor() as cursor:
-            await cursor.execute('''
+            await cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS users (
                     user_id INTEGER PRIMARY KEY,
                     balance INTEGER DEFAULT 100
                 )
-            ''')
+            """
+            )
         await self.bot.db.commit()
 
     async def get_or_create_user(self, user_id):
@@ -73,12 +74,16 @@ class Economy(commands.Cog):
         user_id = interaction.user.id
         await self.get_or_create_user(user_id)
         daily_amount = random.randint(100, 500)
-        
+
         async with self.bot.db.cursor() as cursor:
             await cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (daily_amount, user_id))
         await self.bot.db.commit()
-        
-        embed = discord.Embed(title="Daily Reward!", description=f"You have claimed your daily reward of 🪙 **{daily_amount}** coins!", color=discord.Color.gold())
+
+        embed = discord.Embed(
+            title="Daily Reward!",
+            description=f"You have claimed your daily reward of 🪙 **{daily_amount}** coins!",
+            color=discord.Color.gold(),
+        )
         await interaction.response.send_message(embed=embed)
 
     @daily.error
@@ -87,31 +92,36 @@ class Economy(commands.Cog):
             seconds = error.retry_after
             hours, remainder = divmod(int(seconds), 3600)
             minutes, _ = divmod(remainder, 60)
-            await interaction.response.send_message(f"You've already claimed your daily reward. Please try again in **{hours}h {minutes}m**.", ephemeral=True)
-    
+            await interaction.response.send_message(
+                f"You've already claimed your daily reward. Please try again in **{hours}h {minutes}m**.",
+                ephemeral=True,
+            )
+
     @jobs.command(name="freelance", description="Do a quick freelance job for some extra cash.")
     @app_commands.checks.cooldown(1, 900, key=lambda i: i.user.id)
     async def jobs_freelance(self, interaction: discord.Interaction):
         user_id = interaction.user.id
         await self.get_or_create_user(user_id)
         amount = random.randint(25, 75)
-        
+
         async with self.bot.db.cursor() as cursor:
             await cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (amount, user_id))
         await self.bot.db.commit()
-        
+
         messages = [
             f"You designed a logo for a local startup and earned 🪙 **{amount}**.",
             f"You wrote a short article for a blog and got paid 🪙 **{amount}**.",
-            f"You helped someone with their homework and they tipped you 🪙 **{amount}**."
+            f"You helped someone with their homework and they tipped you 🪙 **{amount}**.",
         ]
         await interaction.response.send_message(random.choice(messages))
-        
+
     @jobs_freelance.error
     async def freelance_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
         if isinstance(error, app_commands.CommandOnCooldown):
             minutes = int(error.retry_after / 60)
-            await interaction.response.send_message(f"You need a break. You can do another freelance job in **{minutes}** minutes.", ephemeral=True)
+            await interaction.response.send_message(
+                f"You need a break. You can do another freelance job in **{minutes}** minutes.", ephemeral=True
+            )
 
     @jobs.command(name="regular", description="Work your regular shift for a steady income.")
     @app_commands.checks.cooldown(1, 3600, key=lambda i: i.user.id)
@@ -119,7 +129,7 @@ class Economy(commands.Cog):
         user_id = interaction.user.id
         await self.get_or_create_user(user_id)
         amount = random.randint(100, 300)
-        
+
         async with self.bot.db.cursor() as cursor:
             await cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (amount, user_id))
         await self.bot.db.commit()
@@ -127,7 +137,7 @@ class Economy(commands.Cog):
         messages = [
             f"You completed your shift as a programmer and earned 🪙 **{amount}**.",
             f"You spent the day as a server janitor and got paid 🪙 **{amount}**.",
-            f"You delivered pizzas all afternoon and made 🪙 **{amount}**."
+            f"You delivered pizzas all afternoon and made 🪙 **{amount}**.",
         ]
         await interaction.response.send_message(random.choice(messages))
 
@@ -135,34 +145,42 @@ class Economy(commands.Cog):
     async def regular_work_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
         if isinstance(error, app_commands.CommandOnCooldown):
             minutes = int(error.retry_after / 60)
-            await interaction.response.send_message(f"You're tired from your shift. You can work again in **{minutes}** minutes.", ephemeral=True)
-            
+            await interaction.response.send_message(
+                f"You're tired from your shift. You can work again in **{minutes}** minutes.", ephemeral=True
+            )
+
     @jobs.command(name="crime", description="Commit a crime for a high reward, but with high risk.")
     @app_commands.checks.cooldown(1, 21600, key=lambda i: i.user.id)
     async def jobs_crime(self, interaction: discord.Interaction):
         user_id = interaction.user.id
         balance = await self.get_or_create_user(user_id)
-        
+
         success_chance = 0.50
         if random.random() < success_chance:
             payout = random.randint(500, 1500)
             async with self.bot.db.cursor() as cursor:
                 await cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (payout, user_id))
             await self.bot.db.commit()
-            await interaction.response.send_message(f"🚨 **Success!** Your high-stakes bank heist went perfectly. You got away with 🪙 **{payout}**!")
+            await interaction.response.send_message(
+                f"🚨 **Success!** Your high-stakes bank heist went perfectly. You got away with 🪙 **{payout}**!"
+            )
         else:
             fine = random.randint(200, 750)
-            fine = min(balance, fine) 
+            fine = min(balance, fine)
             async with self.bot.db.cursor() as cursor:
                 await cursor.execute("UPDATE users SET balance = balance - ? WHERE user_id = ?", (fine, user_id))
             await self.bot.db.commit()
-            await interaction.response.send_message(f"👮‍♂️ **BUSTED!** The silent alarm tripped during your operation. You were caught and fined 🪙 **{fine}**.")
+            await interaction.response.send_message(
+                f"👮‍♂️ **BUSTED!** The silent alarm tripped during your operation. You were caught and fined 🪙 **{fine}**."
+            )
 
     @jobs_crime.error
     async def crime_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
         if isinstance(error, app_commands.CommandOnCooldown):
             hours = int(error.retry_after / 3600)
-            await interaction.response.send_message(f"You need to lay low for a while. You can try another crime in **{hours}** hours.", ephemeral=True)
+            await interaction.response.send_message(
+                f"You need to lay low for a while. You can try another crime in **{hours}** hours.", ephemeral=True
+            )
 
     @app_commands.command(name="gamble", description="Gamble your coins for a chance to win big.")
     @app_commands.describe(amount="The amount of coins you want to gamble.")
@@ -170,7 +188,7 @@ class Economy(commands.Cog):
     async def gamble(self, interaction: discord.Interaction, amount: app_commands.Range[int, 1]):
         user_id = interaction.user.id
         balance = await self.get_or_create_user(user_id)
-        
+
         if amount > balance:
             await interaction.response.send_message("You don't have enough coins to gamble that much.", ephemeral=True)
             return
@@ -181,18 +199,22 @@ class Economy(commands.Cog):
             if win:
                 new_balance = balance + amount
                 await cursor.execute("UPDATE users SET balance = ? WHERE user_id = ?", (new_balance, user_id))
-                await interaction.response.send_message(f"🎉 **You won!** You gambled {amount} and won {amount} coins! Your new balance is 🪙 {new_balance}.")
+                await interaction.response.send_message(
+                    f"🎉 **You won!** You gambled {amount} and won {amount} coins! Your new balance is 🪙 {new_balance}."
+                )
             else:
                 new_balance = balance - amount
                 await cursor.execute("UPDATE users SET balance = ? WHERE user_id = ?", (new_balance, user_id))
-                await interaction.response.send_message(f"💀 **You lost!** You gambled {amount} and lost it all. Your new balance is 🪙 {new_balance}.")
+                await interaction.response.send_message(
+                    f"💀 **You lost!** You gambled {amount} and lost it all. Your new balance is 🪙 {new_balance}."
+                )
         await self.bot.db.commit()
 
     @app_commands.command(name="leaderboard", description="Shows the top 10 richest users in the server.")
     @app_commands.checks.cooldown(1, 30, key=lambda i: i.guild_id)
     async def leaderboard(self, interaction: discord.Interaction):
         await interaction.response.defer()
-        
+
         async with self.bot.db.cursor() as cursor:
             await cursor.execute("SELECT user_id, balance FROM users ORDER BY balance DESC LIMIT 10")
             top_users = await cursor.fetchall()
@@ -202,7 +224,7 @@ class Economy(commands.Cog):
             return
 
         embed = discord.Embed(title="🏆 Server Coin Leaderboard 🏆", color=discord.Color.gold())
-        
+
         leaderboard_text = ""
         for rank, (user_id, balance) in enumerate(top_users, start=1):
             try:
@@ -217,9 +239,13 @@ class Economy(commands.Cog):
         await interaction.followup.send(embed=embed)
 
     @app_commands.command(name="transfer", description="Transfer coins to another member.")
-    @app_commands.describe(member="The member you want to transfer coins to.", amount="The amount of coins to transfer.")
+    @app_commands.describe(
+        member="The member you want to transfer coins to.", amount="The amount of coins to transfer."
+    )
     @app_commands.checks.cooldown(1, 15, key=lambda i: i.user.id)
-    async def transfer(self, interaction: discord.Interaction, member: discord.Member, amount: app_commands.Range[int, 1]):
+    async def transfer(
+        self, interaction: discord.Interaction, member: discord.Member, amount: app_commands.Range[int, 1]
+    ):
         sender_id = interaction.user.id
         receiver_id = member.id
 
@@ -230,17 +256,21 @@ class Economy(commands.Cog):
         sender_balance = await self.get_or_create_user(sender_id)
 
         if sender_balance < amount:
-            await interaction.response.send_message("You do not have enough coins to make this transfer.", ephemeral=True)
+            await interaction.response.send_message(
+                "You do not have enough coins to make this transfer.", ephemeral=True
+            )
             return
-        
+
         await self.get_or_create_user(receiver_id)
 
         async with self.bot.db.cursor() as cursor:
             await cursor.execute("UPDATE users SET balance = balance - ? WHERE user_id = ?", (amount, sender_id))
             await cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (amount, receiver_id))
-        
+
         await self.bot.db.commit()
-        await interaction.response.send_message(f"💸 You have successfully transferred 🪙 **{amount}** coins to {member.mention}!")
+        await interaction.response.send_message(
+            f"💸 You have successfully transferred 🪙 **{amount}** coins to {member.mention}!"
+        )
 
     @app_commands.command(name="rob", description="Attempt to rob coins from another member.")
     @app_commands.describe(member="The member you want to rob.")
@@ -252,7 +282,7 @@ class Economy(commands.Cog):
         if robber_id == victim_id:
             await interaction.response.send_message("You can't rob yourself, you silly goose!", ephemeral=True)
             return
-        
+
         robber_balance = await self.get_or_create_user(robber_id)
         victim_balance = await self.get_or_create_user(victim_id)
 
@@ -265,23 +295,35 @@ class Economy(commands.Cog):
         if random.random() < success_chance:
             robbed_amount = random.randint(int(victim_balance * 0.1), int(victim_balance * 0.25))
             async with self.bot.db.cursor() as cursor:
-                await cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (robbed_amount, robber_id))
-                await cursor.execute("UPDATE users SET balance = balance - ? WHERE user_id = ?", (robbed_amount, victim_id))
+                await cursor.execute(
+                    "UPDATE users SET balance = balance + ? WHERE user_id = ?", (robbed_amount, robber_id)
+                )
+                await cursor.execute(
+                    "UPDATE users SET balance = balance - ? WHERE user_id = ?", (robbed_amount, victim_id)
+                )
             await self.bot.db.commit()
-            await interaction.response.send_message(f"🚨 Success! You discreetly robbed 🪙 **{robbed_amount}** from {member.mention}!")
+            await interaction.response.send_message(
+                f"🚨 Success! You discreetly robbed 🪙 **{robbed_amount}** from {member.mention}!"
+            )
         else:
             fine_amount = random.randint(int(robber_balance * 0.1), int(robber_balance * 0.2))
-            fine_amount = min(robber_balance, fine_amount) 
+            fine_amount = min(robber_balance, fine_amount)
             async with self.bot.db.cursor() as cursor:
-                await cursor.execute("UPDATE users SET balance = balance - ? WHERE user_id = ?", (fine_amount, robber_id))
+                await cursor.execute(
+                    "UPDATE users SET balance = balance - ? WHERE user_id = ?", (fine_amount, robber_id)
+                )
             await self.bot.db.commit()
-            await interaction.response.send_message(f"👮‍♂️ Busted! Your robbery attempt on {member.mention} failed and you were fined 🪙 **{fine_amount}**.")
+            await interaction.response.send_message(
+                f"👮‍♂️ Busted! Your robbery attempt on {member.mention} failed and you were fined 🪙 **{fine_amount}**."
+            )
 
     @rob.error
     async def rob_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
         if isinstance(error, app_commands.CommandOnCooldown):
             minutes = int(error.retry_after / 60)
-            await interaction.response.send_message(f"You're on a cooldown. You can attempt another robbery in **{minutes}** minutes.", ephemeral=True)
+            await interaction.response.send_message(
+                f"You're on a cooldown. You can attempt another robbery in **{minutes}** minutes.", ephemeral=True
+            )
 
     @app_commands.command(name="slots", description="Play the slot machine.")
     @app_commands.describe(bet="The amount of coins you want to bet.")
@@ -294,14 +336,14 @@ class Economy(commands.Cog):
             await interaction.response.send_message("You don't have enough coins to bet that much.", ephemeral=True)
             return
 
-        reels = ['🍒', '🍊', '🍋', '🔔', '⭐', '💎']
+        reels = ["🍒", "🍊", "🍋", "🔔", "⭐", "💎"]
         spin = [random.choice(reels) for _ in range(3)]
-        
+
         result_text = f"**[ {spin[0]} | {spin[1]} | {spin[2]} ]**\n\n"
 
         winnings = 0
         if spin[0] == spin[1] == spin[2]:
-            if spin[0] == '💎':
+            if spin[0] == "💎":
                 winnings = bet * 20
                 result_text += f"💎 JACKPOT! 💎 You won **{winnings}** coins!"
             else:
@@ -318,7 +360,7 @@ class Economy(commands.Cog):
         async with self.bot.db.cursor() as cursor:
             await cursor.execute("UPDATE users SET balance = ? WHERE user_id = ?", (new_balance, user_id))
         await self.bot.db.commit()
-        
+
         embed = discord.Embed(title="🎰 Slot Machine 🎰", description=result_text, color=discord.Color.dark_magenta())
         embed.set_footer(text=f"Your new balance is 🪙 {new_balance}")
         await interaction.response.send_message(embed=embed)
