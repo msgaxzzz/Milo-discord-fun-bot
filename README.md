@@ -29,6 +29,25 @@ Milo is intended to be a practical bot for real online communities, not a one-co
 
 ## Quick Start
 
+Use the installer script if you want the fastest local setup:
+
+### Linux / macOS
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/msgaxzzz/Milo-discord-fun-bot/main/install.sh -o install.sh
+bash install.sh
+```
+
+### Windows
+
+```bat
+install.bat
+```
+
+The installer creates a local `.venv`, installs dependencies, and generates a local `config.json`.
+
+If you prefer a manual setup, use:
+
 ```bash
 git clone https://github.com/msgaxzzz/Milo-discord-fun-bot.git
 cd Milo-discord-fun-bot
