@@ -1,0 +1,52 @@
+name: Feature Request
+description: Suggest an improvement or new feature for Milo
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What limitation or pain point are you trying to solve?
+      placeholder: The current behavior makes it hard to ...
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Solution
+      description: Describe the feature you want
+      placeholder: Add a command / setting / behavior that ...
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Any other approaches you considered?
+  - type: dropdown
+    id: breaking
+    attributes:
+      label: Breaking Change?
+      options:
+        - "No"
+        - "Maybe"
+        - "Yes"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Commands
+        - Economy
+        - Farming
+        - AI Chat
+        - Moderation
+        - Developer Experience
+        - Docs
+        - Other
+    validations:
+      required: true

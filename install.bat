@@ -43,16 +43,16 @@ cd "%DIR_NAME%" || (
     exit /b 1
 )
 
-:: Find Python 3.7+
+:: Find Python 3.9+
 set PYTHON_BIN=
-for %%P in (python3.11 python3.10 python3.9 python3.8 python3.7 python) do (
+for %%P in (python3.13 python3.12 python3.11 python3.10 python3.9 python) do (
     for /f "tokens=2 delims= " %%V in ('%%P --version 2^>^&1') do (
         set "VER=%%V"
         for /f "tokens=1,2 delims=." %%A in ("!VER!") do (
             set "MAJOR=%%A"
             set "MINOR=%%B"
             if !MAJOR! GEQ 3 (
-                if !MINOR! GEQ 7 (
+                if !MINOR! GEQ 9 (
                     set PYTHON_BIN=%%P
                     goto foundpython
                 )
@@ -63,7 +63,7 @@ for %%P in (python3.11 python3.10 python3.9 python3.8 python3.7 python) do (
 
 :foundpython
 if not defined PYTHON_BIN (
-    echo No compatible Python (>=3.7) found. Please install Python 3.7 or higher.
+    echo No compatible Python (>=3.9) found. Please install Python 3.9 or higher.
     pause
     exit /b 1
 )

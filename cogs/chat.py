@@ -1,10 +1,9 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-import aiohttp
 import json
 from collections import defaultdict
-from typing import Optional, List, Dict
+from typing import List, Dict
 import logging
 
 logger = logging.getLogger(__name__)
@@ -20,39 +19,20 @@ DEFAULT_PERSONA = "You are Milo, a friendly and helpful Discord bot. You can acc
 class Chat(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.session: Optional[aiohttp.ClientSession] = None
         self.conversations: Dict[int, List[Dict]] = defaultdict(list)
         self.load_config()
         self.bot.loop.create_task(self.setup_database())
-        self.bot.loop.create_task(self._create_session())
-
-    async def _create_session(self):
-        """Create aiohttp session."""
-        if not self.session:
-            self.session = aiohttp.ClientSession()
-            logger.info("Chat session created")
 
     def load_config(self):
-        """Load chat configuration from config.json."""
-        try:
-            with open("config.json", "r", encoding="utf-8") as f:
-                config = json.load(f)
-                self.default_api_key = config.get("OPENAI_API_KEY")
-                self.api_base = config.get("OPENAI_API_BASE", DEFAULT_API_BASE)
-                self.allow_user_keys = config.get("ALLOW_USER_KEYS", True)
-                self.default_model = config.get("DEFAULT_CHAT_MODEL", DEFAULT_MODEL)
-                self.allowed_models = config.get("ALLOWED_CHAT_MODELS", [DEFAULT_MODEL])
-                self.google_api_key = config.get("GOOGLE_API_KEY")
-                self.google_cse_id = config.get("GOOGLE_CSE_ID")
-        except (FileNotFoundError, json.JSONDecodeError) as e:
-            logger.warning(f"Failed to load chat config: {e}")
-            self.default_api_key = None
-            self.api_base = DEFAULT_API_BASE
-            self.default_model = DEFAULT_MODEL
-            self.allow_user_keys = True
-            self.allowed_models = [DEFAULT_MODEL]
-            self.google_api_key = None
-            self.google_cse_id = None
+        """Load chat configuration from the bot runtime config."""
+        config = getattr(self.bot, "config", {})
+        self.default_api_key = config.get("OPENAI_API_KEY")
+        self.api_base = config.get("OPENAI_API_BASE", DEFAULT_API_BASE)
+        self.allow_user_keys = config.get("ALLOW_USER_KEYS", True)
+        self.default_model = config.get("DEFAULT_CHAT_MODEL", DEFAULT_MODEL)
+        self.allowed_models = config.get("ALLOWED_CHAT_MODELS", [DEFAULT_MODEL])
+        self.google_api_key = config.get("GOOGLE_API_KEY")
+        self.google_cse_id = config.get("GOOGLE_CSE_ID")
 
         self.enable_web_search = bool(self.google_api_key and self.google_cse_id)
 
@@ -73,6 +53,10 @@ class Chat(commands.Cog):
                 pass
         await self.bot.db.commit()
 
+    @property
+    def session(self):
+        return self.bot.http_session
+
     async def get_guild_config(self, guild_id: int):
         if not guild_id:
             return None, None
@@ -92,6 +76,22 @@ class Chat(commands.Cog):
             await cursor.execute("UPDATE guild_configs SET persona = ? WHERE guild_id = ?", (persona, guild_id))
         await self.bot.db.commit()
 
+    async def validate_api_key(self, api_key: str) -> tuple[bool, str]:
+        headers = {"Authorization": f"Bearer {api_key}"}
+        try:
+            async with self.session.get(f"{self.api_base}/models", headers=headers) as response:
+                if response.status == 200:
+                    return True, "API key is valid."
+
+                try:
+                    error_data = await response.json()
+                    error_message = error_data.get("error", {}).get("message", "Unknown API error.")
+                except Exception:
+                    error_message = "Unknown API error."
+                return False, f"{response.status}: {error_message}"
+        except Exception as error:
+            return False, str(error)
+
     chat_config = app_commands.Group(
         name="chat-config", description="Configure the AI chat settings for a server.", guild_only=True
     )
@@ -107,14 +107,19 @@ class Chat(commands.Cog):
             await self.set_guild_key(interaction.guild.id)
             await interaction.response.send_message("✅ Server API key removed.", ephemeral=True)
             return
+        await interaction.response.defer(ephemeral=True)
+        valid, detail = await self.validate_api_key(key)
+        if not valid:
+            await interaction.followup.send(f"API key validation failed: {detail}", ephemeral=True)
+            return
         await self.set_guild_key(interaction.guild.id, key)
-        await interaction.response.send_message("✅ Server API key saved.", ephemeral=True)
+        await interaction.followup.send("✅ Server API key validated and saved.", ephemeral=True)
 
     @chat_config.command(name="set-persona", description="Set a custom personality for the AI.")
     @app_commands.describe(persona="A description of the AI's personality. Use 'reset' to remove.")
     @app_commands.checks.has_permissions(manage_guild=True)
     async def set_persona(self, interaction: discord.Interaction, persona: str):
-        if len(persona) > 500:
+        if len(persona) > MAX_PERSONA_LENGTH:
             await interaction.response.send_message("Persona is too long (max 500 chars).", ephemeral=True)
             return
         if persona.lower() == "reset":
@@ -147,6 +152,32 @@ class Chat(commands.Cog):
             inline=False,
         )
         embed.add_field(name="API Base URL", value=f"`{self.api_base}`", inline=False)
+        embed.add_field(name="Allowed Models", value=", ".join(f"`{model}`" for model in self.allowed_models), inline=False)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @chat_config.command(name="test", description="Validate the effective API key for this server.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def test_config(self, interaction: discord.Interaction):
+        guild_config = await self.get_guild_config(interaction.guild.id) or (None, None)
+        guild_key, _ = guild_config
+        api_key = guild_key or self.default_api_key
+        if not api_key:
+            await interaction.response.send_message("No API key is configured to test.", ephemeral=True)
+            return
+
+        await interaction.response.defer(ephemeral=True)
+        valid, detail = await self.validate_api_key(api_key)
+        if valid:
+            await interaction.followup.send("API key validation succeeded.", ephemeral=True)
+        else:
+            await interaction.followup.send(f"API key validation failed: {detail}", ephemeral=True)
+
+    @chat_config.command(name="models", description="Show the configured default and allowed chat models.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def list_models(self, interaction: discord.Interaction):
+        embed = discord.Embed(title="Chat Models", color=discord.Color.blurple())
+        embed.add_field(name="Default Model", value=f"`{self.default_model}`", inline=False)
+        embed.add_field(name="Allowed Models", value="\n".join(f"`{model}`" for model in self.allowed_models), inline=False)
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     def define_tools(self):
@@ -201,6 +232,7 @@ class Chat(commands.Cog):
     @app_commands.checks.cooldown(1, 8, key=lambda i: i.user.id)
     async def chat(self, interaction: discord.Interaction, prompt: str, model: str = None, search_web: bool = False):
         await interaction.response.defer()
+        guild_id = interaction.guild.id if interaction.guild else None
 
         # Fixed bug.
         if search_web and not self.enable_web_search:
@@ -213,7 +245,11 @@ class Chat(commands.Cog):
         context_id = interaction.channel.id if interaction.guild else interaction.user.id
         chosen_model = model or self.default_model
 
-        guild_config = await self.get_guild_config(interaction.guild.id) or (None, None)
+        if chosen_model not in self.allowed_models:
+            await interaction.followup.send("That model is not allowed for this bot.", ephemeral=True)
+            return
+
+        guild_config = await self.get_guild_config(guild_id) or (None, None)
         api_key, persona = guild_config
 
         if not api_key:
@@ -223,9 +259,7 @@ class Chat(commands.Cog):
             return
 
         if context_id not in self.conversations:
-            system_prompt_content = persona or (
-                "You are Milo, a friendly and helpful Discord bot. You can access real-time information using the 'google_search' tool for current events or specific data. Keep your answers concise and engaging."
-            )
+            system_prompt_content = persona or DEFAULT_PERSONA
             self.conversations[context_id].append({"role": "system", "content": system_prompt_content})
 
         self.conversations[context_id].append({"role": "user", "content": prompt})
@@ -277,6 +311,11 @@ class Chat(commands.Cog):
                     async with self.session.post(
                         f"{self.api_base}/chat/completions", headers=headers, json=final_payload
                     ) as final_response:
+                        if final_response.status != 200:
+                            self.conversations[context_id].pop()
+                            self.conversations[context_id].pop()
+                            await thinking_message.edit(content="The model failed after web search. Please try again.")
+                            return
                         final_data = await final_response.json()
                         final_answer = final_data["choices"][0]["message"]["content"]
                         await thinking_message.edit(content=final_answer)
@@ -285,9 +324,10 @@ class Chat(commands.Cog):
                     await interaction.edit_original_response(content=final_answer)
 
                 self.conversations[context_id].append({"role": "assistant", "content": final_answer})
-                if len(self.conversations[context_id]) > 10:
+                if len(self.conversations[context_id]) > MAX_CONVERSATION_HISTORY:
                     self.conversations[context_id] = (
-                        self.conversations[context_id][0:1] + self.conversations[context_id][-9:]
+                        self.conversations[context_id][0:1]
+                        + self.conversations[context_id][-(MAX_CONVERSATION_HISTORY - 1) :]
                     )
 
         except Exception as e:

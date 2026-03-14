@@ -1,16 +1,12 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-import aiohttp
 
 
 class Interactions(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.session = aiohttp.ClientSession()
-
-    async def cog_unload(self):
-        await self.session.close()
+        self.session = bot.http_session
 
     async def get_gif(self, category: str):
         try:

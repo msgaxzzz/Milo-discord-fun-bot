@@ -1,123 +1,200 @@
-# Milo - A Feature-Rich Discord Fun Bot
+# Milo
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![Python Version](https://img.shields.io/badge/Python-3.7%2B-blue.svg)](https://www.python.org/downloads/release/python-3110/)
-[![GitHub stars](https://img.shields.io/github/stars/msgaxzzz/Milo-discord-fun-bot.svg?style=social&label=Star)](https://github.com/msgaxzzz/Milo-discord-fun-bot/stargazers)
+Milo is an open-source Discord bot built with `discord.py`, `aiosqlite`, and `aiohttp`.
 
----
-## Update Log For the latest feature updates and fixes, please check our complete update log: [View Update Log](https://github.com/msgaxzzz/Milo-discord-fun-bot/blob/main/CHANGELOG.md)
+It combines:
 
----
+- AI chat with optional web search
+- Per-server economy and farming systems
+- Games, media, and social interaction commands
+- Utility and moderation helpers
 
-## Milo is a powerful, multi-functional Discord bot built with modern Python and discord.py.  
-## Designed to be the ultimate entertainment hub for any server, Milo features a full economy system, interactive games, and an advanced AI chat with web-enabled search capabilities.
+## Why This Project Exists
 
----
-## ✨ Features
+Milo is meant to be a practical community bot rather than a single-purpose demo. The project focuses on features that are useful in real Discord servers:
 
-Milo is built with a modular cog architecture, with each module providing a unique set of features.
+- lightweight AI-assisted conversations
+- server-local progression systems
+- simple moderation helpers
+- low-friction entertainment and engagement commands
 
-### 🤖 AI Chat & Tools (`/chat`)
-- **Direct & Private Conversations**: Chat directly in any channel or in DMs with the bot.
-- **Web-Enabled AI**: The AI can perform live Google searches for up-to-the-minute information on current events, news, and specific data.
-- **Configurable Intelligence**:
-  - **Dynamic Model Selection**: Choose the best AI model for the job (`gpt-4o`, `gpt-4o-mini`, etc.) for each conversation.
-  - **Custom Personas**: Server admins can set a unique personality for the bot, making it act like anything from a pirate to a poet.
-  - **Bring Your Own Key**: Admins can configure their own OpenAI API keys for their server.
-- **Smart Context**: The bot remembers the context of your conversation in each channel and DM separately.
-- **Optional Web Search**: Users can decide for each prompt whether to enable web search or not.
+## Status
 
-### 💰 Full Economy System (`/balance`, `/jobs`, etc.)
-- **Currency & Wallet**: Earn and manage your own server currency (coins).
-- **Multiple Income Streams**:
-  - `/daily`: Claim your daily login bonus.
-  - `/jobs freelance`: Quick, low-reward jobs with a short cooldown.
-  - `/jobs regular`: Steady, medium-reward jobs with a medium cooldown.
-  - `/jobs crime`: High-risk, high-reward jobs with a long cooldown.
-- **Player vs. Player**:
-  - `/transfer`: Securely transfer coins to other users.
-  - `/rob`: Attempt to rob another user (with a chance of failure and a fine!).
-- **Gambling**:
-  - `/gamble`: A simple double-or-nothing dice game.
-  - `/slots`: Try your luck at the slot machine!
-- **Community**:
-  - `/leaderboard`: See who the richest users on the server are.
+- License: MIT
+- Runtime target: Python 3.9+
+- Storage: SQLite
+- Secrets: environment variables first, then local `config.json`
 
-### 🎮 Games & Fun (`/tictactoe`, `/guess`, etc.)
-- **Interactive Games**:
-  - `/tictactoe`: Challenge another server member to a game of Tic-Tac-Toe with interactive buttons.
-  - `/guess`: A classic number guessing game against the bot.
-- **Classic Fun**:
-  - `/eightball`: Ask the magic 8-ball a question.
-  - `/rps`: Play Rock, Paper, Scissors.
-  - `/roll`: Roll dice in NdN format (e.g., `2d6`).
-  - `/coinflip`: Flip a coin.
-- **Creative & Social**:
-  - `/tweet`: Generate an image of a fake tweet with your text and avatar.
-  - `/love`: A "love calculator" to test compatibility between two users.
-  - `/joke` & `/fact`: Get random jokes and interesting facts.
-  - `/poll`: Create a simple poll with up to 10 options.
-- **Text Manipulation**:
-  - `/emojify`: Turn your text into emoji letters.
-  - `/clap`: Add a 👏 between 👏 every 👏 word.
+## Quick Start
 
-### 💕 GIF-Powered Interactions (`/hug`, `/slap`, etc.)
-- Express yourself with animated GIFs for a more lively interaction!
-- Commands include: `/hug`, `/pat`, `/slap`, `/kiss`, `/cuddle`, `/poke`.
-
-### 🛠️ Utility & Tools (`/help`, `/serverinfo`, etc.)
-- **Advanced Help System**: A multi-level help command (`/help all` and `/help command`).
-- **Information Commands**:
-  - `/serverinfo`: Get detailed stats about the current server.
-  - `/memberinfo`: See details about a specific user.
-  - `/botinfo`: View stats about the Milo bot itself.
-  - `/avatar`: View a user's avatar in high resolution.
-- **Personal Tools**:
-  - `/remindme`: Set a personal reminder, and the bot will DM you.
-- **Moderation**:
-  - `/clear`: A simple command for admins to bulk-delete messages.
-
----
-
-## 🚀 Getting Started
-
-There are two ways to set up the bot: a one-line installer for new servers, or a manual setup for more control.
-
-### Method 1: The Easy Way (One-Line Installer)
-For a fresh Linux server, you can use this single command to download the installer script and run it automatically. It will check for dependencies, clone the repo, and set up the project structure for you.
-
-## Installation:
-
-```bash
-curl -sSL https://raw.githubusercontent.com/msgaxzzz/Milo-discord-fun-bot/main/install.sh | bash
-```
----
-
-## Method 2: Manual Installation
-Follow these steps to set up the bot on your local machine or server.
-
-## 1. Clone the Repository
 ```bash
 git clone https://github.com/msgaxzzz/Milo-discord-fun-bot.git
 cd Milo-discord-fun-bot
-```
-
-Install Dependencies
-The project's dependencies are listed in requirements.txt. Install them using pip:
-# It's recommended to use python3 and pip3 on most systems
-
-```bash
-pip3 install -r requirements.txt
-```
-
-Create the Database Folder
-The bot uses an SQLite database. You need to create a folder for it manually.
-```bash
-mkdir database
-```
-
-Running the Bot
-Once the configuration is complete, start the bot with:
-```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
 python3 main.py
 ```
+
+Fill in `.env` before starting the bot.
+
+## Who It Is For
+
+- personal Discord servers
+- small online communities
+- friend groups that want a self-hosted bot
+- maintainers who want a compact `discord.py` codebase to extend
+
+## What Milo Includes
+
+- AI chat with configurable model allowlists and optional Google Custom Search
+- Economy commands with per-guild balances and leaderboards
+- Admin tools for managing server economy balances
+- Farming progression tied to the server economy
+- Games like `/guess`, `/tictactoe`, `/roll`, and `/rps`
+- Fun and media commands for polls, memes, avatars, GIF interactions, and image generation
+- Utility commands for persisted reminders, AFK management, help, moderation, and server info
+- Community tooling for welcome messages, leave messages, announcements, and mod logs
+
+## Important Behavior
+
+- Economy and farming data are isolated per guild
+- AI chat works in servers and DMs, but server configuration commands are guild-only
+- Reminders are persisted in SQLite and survive restarts
+- AFK status is stored per guild and cleared on your next message in that server
+- Real secrets should never be committed to git
+
+## Configuration
+
+Milo loads config in this order:
+
+1. Environment variables from the current shell or `.env`
+2. Local `config.json`
+
+Required:
+
+- `DISCORD_TOKEN`
+
+Optional:
+
+- `OPENAI_API_KEY`
+- `OPENAI_API_BASE`
+- `ALLOW_USER_KEYS`
+- `DEFAULT_CHAT_MODEL`
+- `ALLOWED_CHAT_MODELS`
+- `GOOGLE_API_KEY`
+- `GOOGLE_CSE_ID`
+
+See:
+
+- [Configuration Guide](./docs/configuration.md)
+- [.env.example](./.env.example)
+
+## Documentation
+
+- [Command Reference](./docs/commands.md)
+- [Configuration Guide](./docs/configuration.md)
+- [Deployment Guide](./docs/deployment.md)
+- [Operations Notes](./docs/operations.md)
+- [FAQ](./docs/faq.md)
+- [Contributing](./CONTRIBUTING.md)
+- [Code of Conduct](./CODE_OF_CONDUCT.md)
+- [Security Policy](./SECURITY.md)
+- [Support](./SUPPORT.md)
+
+## Installation Scripts
+
+The repository includes:
+
+- [install.sh](./install.sh) for Linux/macOS-style environments
+- [install.bat](./install.bat) for Windows
+
+Both installers are intended for local setup and will generate a local `config.json`.
+
+## Manual Setup
+
+### Linux / macOS
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+cp .env.example .env
+python3 main.py
+```
+
+### Windows
+
+```bat
+py -3.9 -m venv .venv
+.venv\Scripts\activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+copy .env.example .env
+python main.py
+```
+
+## Deployment
+
+For a small self-hosted setup, any machine that can:
+
+- run Python 3.9+
+- keep a long-lived process online
+- write to local disk
+- access Discord and optional external APIs
+
+is enough.
+
+Common options:
+
+- a VPS
+- a home server
+- a cloud VM
+- a container host
+
+See [Deployment Guide](./docs/deployment.md) for process management and environment notes.
+
+## FAQ
+
+Common questions:
+
+- Does Milo support DMs for AI chat? Yes.
+- Is the economy global across all servers? No, it is isolated per guild.
+- Do reminders survive restarts? Yes.
+- Do I need OpenAI credentials to run the bot? Only for AI chat features.
+
+See the full [FAQ](./docs/faq.md).
+
+## Development Notes
+
+- Slash commands are loaded from modules in `cogs/`
+- Shared HTTP access is managed centrally by the bot process
+- SQLite schema is created and migrated at startup
+- The project currently relies on manual verification rather than a full automated test suite
+
+## Security
+
+- Never commit real Discord, OpenAI, or Google API credentials
+- Use `.env` or a gitignored local `config.json`
+- Report vulnerabilities privately according to [SECURITY.md](./SECURITY.md)
+
+## Project Structure
+
+```text
+main.py
+config_loader.py
+cogs/
+docs/
+```
+
+## Roadmap
+
+Near-term improvements that would strengthen the project:
+
+- automated tests for economy, farming, and reminder flows
+- clearer admin-facing configuration commands
+- structured logging and better runtime error reporting
+- richer deployment examples
+- command reference generation from source metadata

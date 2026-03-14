@@ -1,16 +1,12 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-import aiohttp
 
 
 class Media(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.session = aiohttp.ClientSession()
-
-    async def cog_unload(self):
-        await self.session.close()
+        self.session = bot.http_session
 
     @app_commands.command(name="meme", description="Fetches a random meme.")
     @app_commands.checks.cooldown(1, 5, key=lambda i: i.user.id)

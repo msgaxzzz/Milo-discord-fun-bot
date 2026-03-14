@@ -2,13 +2,15 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import os
-import json
 import sys
 import aiosqlite
+import aiohttp
 from collections import defaultdict
 import datetime
 from typing import Optional
 import logging
+
+from config_loader import load_runtime_config
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -16,27 +18,13 @@ logger = logging.getLogger(__name__)
 
 # Constants
 DATABASE_PATH = "database/main.db"
-CONFIG_PATH = "config.json"
 COGS_FOLDER = "cogs"
 SPAM_THRESHOLD = 5
 SPAM_TIMEFRAME = 7  # seconds
 
 
-def load_config() -> dict:
-    """Load bot configuration from JSON file."""
-    try:
-        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except FileNotFoundError:
-        logger.critical(f"FATAL ERROR: {CONFIG_PATH} file not found.")
-        sys.exit(1)
-    except json.JSONDecodeError as e:
-        logger.critical(f"FATAL ERROR: Could not decode {CONFIG_PATH}: {e}")
-        sys.exit(1)
-
-
-config = load_config()
-TOKEN = config.get("DISCORD_TOKEN")
+config = load_runtime_config()
+TOKEN = config["DISCORD_TOKEN"]
 
 if not TOKEN:
     logger.critical("FATAL ERROR: DISCORD_TOKEN not found in config.")
@@ -48,9 +36,11 @@ intents.members = True
 
 
 class FunBot(commands.Bot):
-    def __init__(self):
+    def __init__(self, runtime_config: dict):
         super().__init__(command_prefix="!", intents=intents)
+        self.config = runtime_config
         self.db: Optional[aiosqlite.Connection] = None
+        self.http_session: Optional[aiohttp.ClientSession] = None
         self.user_message_timestamps = defaultdict(list)
         self.start_time = discord.utils.utcnow()
 
@@ -61,7 +51,10 @@ class FunBot(commands.Bot):
 
         # Connect to database
         self.db = await aiosqlite.connect(DATABASE_PATH)
+        await self.db.execute("PRAGMA journal_mode=WAL")
+        await self.db.execute("PRAGMA foreign_keys=ON")
         logger.info("Successfully connected to the database.")
+        self.http_session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30))
 
         # Initialize database schema
         async with self.db.cursor() as cursor:
@@ -113,7 +106,7 @@ class FunBot(commands.Bot):
                 logger.error(f"Error logging message to database: {e}")
 
         # Anti-spam detection
-        now = datetime.datetime.utcnow()
+        now = discord.utils.utcnow()
         user_timestamps = self.user_message_timestamps[message.author.id]
         user_timestamps.append(now)
 
@@ -140,20 +133,19 @@ class FunBot(commands.Bot):
                 except Exception as e:
                     logger.error(f"An error occurred during spam cleanup: {e}")
 
-        # Dispatch for other listeners
-        self.dispatch("message", message)
-
         # Process commands
         await self.process_commands(message)
 
     async def close(self):
+        if self.http_session and not self.http_session.closed:
+            await self.http_session.close()
         if self.db:
             await self.db.close()
             print("Database connection closed.")
         await super().close()
 
 
-bot = FunBot()
+bot = FunBot(config)
 
 
 @bot.tree.error

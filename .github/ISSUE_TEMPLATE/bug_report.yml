@@ -1,0 +1,73 @@
+name: Bug Report
+description: Report a reproducible problem in Milo
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for reproducible defects. Do not report security issues here. Follow `SECURITY.md` for private reporting.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What broke?
+      placeholder: A short description of the problem
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps To Reproduce
+      description: List the exact steps needed to trigger the issue
+      placeholder: |
+        1. Run ...
+        2. Use command ...
+        3. See error ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      placeholder: What should have happened?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      placeholder: What happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs Or Screenshots
+      description: Paste relevant logs or screenshots. Remove secrets before submitting.
+      render: shell
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Runtime details that may matter
+      placeholder: |
+        Python version:
+        OS:
+        discord.py version:
+        Hosting provider:
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Impacted Area
+      options:
+        - Commands
+        - Economy
+        - Farming
+        - AI Chat
+        - Install / Setup
+        - Docs
+        - Other
+    validations:
+      required: true

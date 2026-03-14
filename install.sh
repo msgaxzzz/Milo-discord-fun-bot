@@ -28,13 +28,13 @@ fi
 
 cd "$DIR_NAME" || { echo -e "${RED}Cannot enter directory $DIR_NAME.${NC}"; exit 1; }
 
-echo -e "${BLUE}Checking for compatible Python versions (>=3.7)...${NC}"
+echo -e "${BLUE}Checking for compatible Python versions (>=3.9)...${NC}"
 PYTHON_BIN=""
 
-for PY in python3.11 python3.10 python3.9 python3.8 python3.7 python3; do
+for PY in python3.13 python3.12 python3.11 python3.10 python3.9 python3; do
     if command -v $PY &> /dev/null; then
         VERSION=$($PY -c "import sys; v=sys.version_info; print(f'{v.major}.{v.minor}')")
-        if (( $(echo "$VERSION >= 3.7" | bc -l) )); then
+        if (( $(echo "$VERSION >= 3.9" | bc -l) )); then
             PYTHON_BIN=$PY
             break
         fi
@@ -42,7 +42,7 @@ for PY in python3.11 python3.10 python3.9 python3.8 python3.7 python3; do
 done
 
 if [ -z "$PYTHON_BIN" ]; then
-    echo -e "${RED}No compatible Python (>=3.7) found. Please install Python 3.7 or higher.${NC}"
+    echo -e "${RED}No compatible Python (>=3.9) found. Please install Python 3.9 or higher.${NC}"
     exit 1
 fi
 

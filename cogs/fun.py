@@ -2,7 +2,6 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import random
-import aiohttp
 from PIL import Image, ImageDraw, ImageFont
 import io
 import textwrap
@@ -11,7 +10,7 @@ import textwrap
 class Fun(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.session = aiohttp.ClientSession()
+        self.session = bot.http_session
         self.jokes = [
             "Why don't scientists trust atoms? Because they make up everything!",
             "I told my wife she should embrace her mistakes. She gave me a hug.",
@@ -98,9 +97,6 @@ class Fun(commands.Cog):
             "Why did the octopus beat the shark in a fight? Because it was well-armed.",
             "Why was the baby strawberry crying? Because its parents were in a jam.",
         ]
-
-    async def cog_unload(self):
-        await self.session.close()
 
     @app_commands.command(name="joke", description="Tells a random joke.")
     @app_commands.checks.cooldown(1, 5, key=lambda i: i.user.id)
