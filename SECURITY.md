@@ -15,8 +15,6 @@ Report vulnerabilities privately with:
 - Impact
 - Any suggested fix or mitigation
 
-If GitHub Security Advisories are enabled for this repository, use private vulnerability reporting there. Otherwise, contact the maintainer directly through a private channel.
-
 ## What to Report
 
 Examples:

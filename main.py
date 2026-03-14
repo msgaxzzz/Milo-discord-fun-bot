@@ -107,12 +107,13 @@ class FunBot(commands.Bot):
 
         # Anti-spam detection
         now = discord.utils.utcnow()
-        user_timestamps = self.user_message_timestamps[message.author.id]
+        spam_key = (message.guild.id if message.guild else 0, message.channel.id, message.author.id)
+        user_timestamps = self.user_message_timestamps[spam_key]
         user_timestamps.append(now)
 
         # Clean old timestamps
         user_timestamps = [t for t in user_timestamps if (now - t).total_seconds() < SPAM_TIMEFRAME]
-        self.user_message_timestamps[message.author.id] = user_timestamps
+        self.user_message_timestamps[spam_key] = user_timestamps
 
         if len(user_timestamps) > SPAM_THRESHOLD:
             if len(user_timestamps) == SPAM_THRESHOLD + 1:
@@ -125,6 +126,10 @@ class FunBot(commands.Bot):
                     def is_spam_message(m):
                         return m.author == message.author and (now - m.created_at).total_seconds() < SPAM_TIMEFRAME
 
+                    try:
+                        await message.delete()
+                    except discord.HTTPException:
+                        pass
                     await message.channel.purge(limit=SPAM_THRESHOLD + 1, check=is_spam_message, before=message)
                 except discord.Forbidden:
                     await message.channel.send(

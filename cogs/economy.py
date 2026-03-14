@@ -157,7 +157,7 @@ class Economy(commands.Cog):
     @app_commands.command(name="balance", description="Check your or another member's coin balance.")
     @app_commands.guild_only()
     @app_commands.describe(member="The member whose balance you want to see.")
-    @app_commands.checks.cooldown(1, 10, key=lambda i: i.user.id)
+    @app_commands.checks.cooldown(1, 10, key=lambda i: (i.guild_id, i.user.id))
     async def balance(self, interaction: discord.Interaction, member: discord.Member = None):
         guild_id = self._get_guild_id(interaction)
         target_member = member or interaction.user
@@ -168,7 +168,7 @@ class Economy(commands.Cog):
 
     @app_commands.command(name="daily", description="Claim your daily reward.")
     @app_commands.guild_only()
-    @app_commands.checks.cooldown(1, DAILY_COOLDOWN, key=lambda i: i.user.id)
+    @app_commands.checks.cooldown(1, DAILY_COOLDOWN, key=lambda i: (i.guild_id, i.user.id))
     async def daily(self, interaction: discord.Interaction):
         guild_id = self._get_guild_id(interaction)
         daily_amount = random.randint(DAILY_MIN, DAILY_MAX)
@@ -193,7 +193,7 @@ class Economy(commands.Cog):
             )
 
     @jobs.command(name="freelance", description="Do a quick freelance job for some extra cash.")
-    @app_commands.checks.cooldown(1, FREELANCE_COOLDOWN, key=lambda i: i.user.id)
+    @app_commands.checks.cooldown(1, FREELANCE_COOLDOWN, key=lambda i: (i.guild_id, i.user.id))
     async def jobs_freelance(self, interaction: discord.Interaction):
         guild_id = self._get_guild_id(interaction)
         amount = random.randint(FREELANCE_MIN, FREELANCE_MAX)
@@ -215,7 +215,7 @@ class Economy(commands.Cog):
             )
 
     @jobs.command(name="regular", description="Work your regular shift for a steady income.")
-    @app_commands.checks.cooldown(1, REGULAR_COOLDOWN, key=lambda i: i.user.id)
+    @app_commands.checks.cooldown(1, REGULAR_COOLDOWN, key=lambda i: (i.guild_id, i.user.id))
     async def jobs_regular(self, interaction: discord.Interaction):
         guild_id = self._get_guild_id(interaction)
         amount = random.randint(REGULAR_MIN, REGULAR_MAX)
@@ -237,7 +237,7 @@ class Economy(commands.Cog):
             )
 
     @jobs.command(name="crime", description="Commit a crime for a high reward, but with high risk.")
-    @app_commands.checks.cooldown(1, CRIME_COOLDOWN, key=lambda i: i.user.id)
+    @app_commands.checks.cooldown(1, CRIME_COOLDOWN, key=lambda i: (i.guild_id, i.user.id))
     async def jobs_crime(self, interaction: discord.Interaction):
         guild_id = self._get_guild_id(interaction)
         balance = await self.get_or_create_user(guild_id, interaction.user.id)
@@ -266,7 +266,7 @@ class Economy(commands.Cog):
     @app_commands.command(name="gamble", description="Gamble your coins for a chance to win big.")
     @app_commands.guild_only()
     @app_commands.describe(amount="The amount of coins you want to gamble.")
-    @app_commands.checks.cooldown(1, 10, key=lambda i: i.user.id)
+    @app_commands.checks.cooldown(1, 10, key=lambda i: (i.guild_id, i.user.id))
     async def gamble(self, interaction: discord.Interaction, amount: app_commands.Range[int, 1]):
         guild_id = self._get_guild_id(interaction)
         balance = await self.get_or_create_user(guild_id, interaction.user.id)
@@ -326,7 +326,7 @@ class Economy(commands.Cog):
     @app_commands.describe(
         member="The member you want to transfer coins to.", amount="The amount of coins to transfer."
     )
-    @app_commands.checks.cooldown(1, 15, key=lambda i: i.user.id)
+    @app_commands.checks.cooldown(1, 15, key=lambda i: (i.guild_id, i.user.id))
     async def transfer(
         self, interaction: discord.Interaction, member: discord.Member, amount: app_commands.Range[int, 1]
     ):
@@ -355,7 +355,7 @@ class Economy(commands.Cog):
     @app_commands.command(name="rob", description="Attempt to rob coins from another member.")
     @app_commands.guild_only()
     @app_commands.describe(member="The member you want to rob.")
-    @app_commands.checks.cooldown(1, ROB_COOLDOWN, key=lambda i: i.user.id)
+    @app_commands.checks.cooldown(1, ROB_COOLDOWN, key=lambda i: (i.guild_id, i.user.id))
     async def rob(self, interaction: discord.Interaction, member: discord.Member):
         guild_id = self._get_guild_id(interaction)
         robber_id = interaction.user.id
@@ -418,7 +418,7 @@ class Economy(commands.Cog):
     @app_commands.command(name="slots", description="Play the slot machine.")
     @app_commands.guild_only()
     @app_commands.describe(bet="The amount of coins you want to bet.")
-    @app_commands.checks.cooldown(1, 5, key=lambda i: i.user.id)
+    @app_commands.checks.cooldown(1, 5, key=lambda i: (i.guild_id, i.user.id))
     async def slots(self, interaction: discord.Interaction, bet: app_commands.Range[int, SLOTS_MIN_BET]):
         guild_id = self._get_guild_id(interaction)
         balance = await self.get_or_create_user(guild_id, interaction.user.id)

@@ -13,6 +13,14 @@ REMINDER_LIMIT_SECONDS = 30 * 24 * 60 * 60
 REMINDER_POLL_SECONDS = 30
 
 
+def parse_duration_spec(value: str) -> Optional[int]:
+    match = re.fullmatch(r"(\d+)([smhd])", value.lower())
+    if not match:
+        return None
+    quantity, unit = match.groups()
+    return int(quantity) * {"s": 1, "m": 60, "h": 3600, "d": 86400}[unit]
+
+
 class Utility(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -33,7 +41,9 @@ class Utility(commands.Cog):
                     channel_id INTEGER,
                     guild_id INTEGER,
                     remind_at TEXT NOT NULL,
-                    reason TEXT NOT NULL
+                    reason TEXT NOT NULL,
+                    recurring_seconds INTEGER,
+                    delivery_failures INTEGER NOT NULL DEFAULT 0
                 )
                 """
             )
@@ -48,6 +58,12 @@ class Utility(commands.Cog):
                 )
                 """
             )
+            await cursor.execute("PRAGMA table_info(reminders)")
+            reminder_columns = [row[1] for row in await cursor.fetchall()]
+            if "recurring_seconds" not in reminder_columns:
+                await cursor.execute("ALTER TABLE reminders ADD COLUMN recurring_seconds INTEGER")
+            if "delivery_failures" not in reminder_columns:
+                await cursor.execute("ALTER TABLE reminders ADD COLUMN delivery_failures INTEGER NOT NULL DEFAULT 0")
         await self.bot.db.commit()
 
     async def get_afk_status(self, guild_id: int, user_id: int):
@@ -84,7 +100,7 @@ class Utility(commands.Cog):
         async with self.bot.db.cursor() as cursor:
             await cursor.execute(
                 """
-                SELECT id, guild_id, channel_id, remind_at, reason
+                SELECT id, guild_id, channel_id, remind_at, reason, recurring_seconds, delivery_failures
                 FROM reminders
                 WHERE user_id = ?
                 ORDER BY remind_at ASC
@@ -92,6 +108,27 @@ class Utility(commands.Cog):
                 (user_id,),
             )
             return await cursor.fetchall()
+
+    async def create_reminder(
+        self,
+        user_id: int,
+        channel_id: Optional[int],
+        guild_id: Optional[int],
+        remind_at,
+        reason: str,
+        recurring_seconds: Optional[int] = None,
+    ) -> int:
+        async with self.bot.db.cursor() as cursor:
+            await cursor.execute(
+                """
+                INSERT INTO reminders (user_id, channel_id, guild_id, remind_at, reason, recurring_seconds)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (user_id, channel_id, guild_id, remind_at.isoformat(), reason, recurring_seconds),
+            )
+            reminder_id = cursor.lastrowid
+        await self.bot.db.commit()
+        return reminder_id
 
     help_group = app_commands.Group(name="help", description="Get help with the bot's commands.")
     reminders_group = app_commands.Group(name="reminders", description="Manage your active reminders.")
@@ -373,34 +410,57 @@ class Utility(commands.Cog):
     @app_commands.command(name="remindme", description="Sets a reminder for you.")
     @app_commands.describe(time="When to remind (e.g., 10s, 5m, 2h, 1d).", reason="What to be reminded of.")
     async def remindme(self, interaction: discord.Interaction, time: str, reason: str):
-        time_match = re.fullmatch(r"(\d+)([smhd])", time.lower())
-        if not time_match:
+        seconds = parse_duration_spec(time)
+        if seconds is None:
             await interaction.response.send_message(
                 "Invalid time format. Use s, m, h, or d (e.g., `10s`, `5m`, `2h`, `1d`).",
                 ephemeral=True,
             )
             return
 
-        quantity, unit = time_match.groups()
-        seconds = int(quantity) * {"s": 1, "m": 60, "h": 3600, "d": 86400}[unit]
         if seconds > REMINDER_LIMIT_SECONDS:
             await interaction.response.send_message("You cannot set a reminder for more than 30 days.", ephemeral=True)
             return
 
         remind_at = discord.utils.utcnow() + timedelta(seconds=seconds)
-        async with self.bot.db.cursor() as cursor:
-            await cursor.execute(
-                """
-                INSERT INTO reminders (user_id, channel_id, guild_id, remind_at, reason)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                (interaction.user.id, interaction.channel_id, interaction.guild_id, remind_at.isoformat(), reason),
-            )
-            reminder_id = cursor.lastrowid
-        await self.bot.db.commit()
+        reminder_id = await self.create_reminder(
+            interaction.user.id,
+            interaction.channel_id,
+            interaction.guild_id,
+            remind_at,
+            reason,
+        )
 
         await interaction.response.send_message(
-            f"⏰ Reminder `{reminder_id}` created for **{quantity}{unit}** from now: `{reason}`",
+            f"Reminder `{reminder_id}` created for **{time.lower()}** from now: `{reason}`",
+            ephemeral=True,
+        )
+
+    @reminders_group.command(name="recurring", description="Create a recurring reminder.")
+    @app_commands.describe(interval="How often to repeat, like 30m, 2h, or 1d.", reason="What to be reminded of.")
+    async def reminders_recurring(self, interaction: discord.Interaction, interval: str, reason: str):
+        seconds = parse_duration_spec(interval)
+        if seconds is None:
+            await interaction.response.send_message(
+                "Invalid interval format. Use s, m, h, or d (e.g., `30m`, `2h`, `1d`).",
+                ephemeral=True,
+            )
+            return
+        if seconds > REMINDER_LIMIT_SECONDS:
+            await interaction.response.send_message("Recurring interval cannot be more than 30 days.", ephemeral=True)
+            return
+
+        remind_at = discord.utils.utcnow() + timedelta(seconds=seconds)
+        reminder_id = await self.create_reminder(
+            interaction.user.id,
+            interaction.channel_id,
+            interaction.guild_id,
+            remind_at,
+            reason,
+            recurring_seconds=seconds,
+        )
+        await interaction.response.send_message(
+            f"Recurring reminder `{reminder_id}` created every **{interval.lower()}**: `{reason}`",
             ephemeral=True,
         )
 
@@ -412,11 +472,17 @@ class Utility(commands.Cog):
             return
 
         lines = []
-        for reminder_id, guild_id, channel_id, remind_at, reason in reminders[:20]:
-            scope = "DM" if guild_id is None else f"Guild `{guild_id}`"
+        for reminder_id, guild_id, channel_id, remind_at, reason, recurring_seconds, delivery_failures in reminders[:20]:
+            if guild_id is None:
+                scope = "DM"
+            else:
+                guild = self.bot.get_guild(guild_id)
+                scope = guild.name if guild else f"Guild `{guild_id}`"
             channel_text = f", channel <#{channel_id}>" if channel_id else ""
+            recurring_text = "" if not recurring_seconds else f" • repeats every `{int(recurring_seconds)}s`"
+            failure_text = "" if not delivery_failures else f" • delivery failures: {delivery_failures}"
             lines.append(
-                f"`{reminder_id}` • {discord.utils.format_dt(discord.utils.parse_time(remind_at), style='R')} • {scope}{channel_text}\n{reason}"
+                f"`{reminder_id}` • {discord.utils.format_dt(discord.utils.parse_time(remind_at), style='R')} • {scope}{channel_text}{recurring_text}{failure_text}\n{reason}"
             )
 
         embed = discord.Embed(title="Active Reminders", description="\n\n".join(lines), color=discord.Color.gold())
@@ -435,6 +501,36 @@ class Utility(commands.Cog):
 
         if deleted:
             await interaction.response.send_message(f"Reminder `{reminder_id}` canceled.", ephemeral=True)
+        else:
+            await interaction.response.send_message("Reminder not found.", ephemeral=True)
+
+    @reminders_group.command(name="snooze", description="Push one reminder further into the future.")
+    @app_commands.describe(reminder_id="The reminder id shown by /reminders list.", delay="How much longer, like 10m or 2h.")
+    async def reminders_snooze(self, interaction: discord.Interaction, reminder_id: int, delay: str):
+        seconds = parse_duration_spec(delay)
+        if seconds is None:
+            await interaction.response.send_message(
+                "Invalid delay format. Use s, m, h, or d (e.g., `10m`, `2h`).",
+                ephemeral=True,
+            )
+            return
+        new_time = discord.utils.utcnow() + timedelta(seconds=seconds)
+        async with self.bot.db.cursor() as cursor:
+            await cursor.execute(
+                """
+                UPDATE reminders
+                SET remind_at = ?, delivery_failures = 0
+                WHERE id = ? AND user_id = ?
+                """,
+                (new_time.isoformat(), reminder_id, interaction.user.id),
+            )
+            updated = cursor.rowcount
+        await self.bot.db.commit()
+        if updated:
+            await interaction.response.send_message(
+                f"Reminder `{reminder_id}` snoozed for `{delay.lower()}`.",
+                ephemeral=True,
+            )
         else:
             await interaction.response.send_message("Reminder not found.", ephemeral=True)
 
@@ -494,7 +590,7 @@ class Utility(commands.Cog):
         async with self.bot.db.cursor() as cursor:
             await cursor.execute(
                 """
-                SELECT id, user_id, channel_id, reason
+                SELECT id, user_id, channel_id, reason, remind_at, recurring_seconds
                 FROM reminders
                 WHERE remind_at <= ?
                 ORDER BY remind_at ASC
@@ -506,7 +602,7 @@ class Utility(commands.Cog):
         if not reminders:
             return
 
-        for reminder_id, user_id, channel_id, reason in reminders:
+        for reminder_id, user_id, channel_id, reason, remind_at, recurring_seconds in reminders:
             user = self.bot.get_user(user_id)
             if user is None:
                 try:
@@ -534,11 +630,34 @@ class Utility(commands.Cog):
                     try:
                         mention = user.mention if user else f"<@{user_id}>"
                         await channel.send(f"Hey {mention}, you had a reminder: {reason}")
+                        delivered = True
                     except discord.HTTPException:
-                        pass
+                        delivered = False
 
             async with self.bot.db.cursor() as cursor:
-                await cursor.execute("DELETE FROM reminders WHERE id = ?", (reminder_id,))
+                if delivered and recurring_seconds:
+                    next_time = discord.utils.parse_time(remind_at)
+                    while next_time <= discord.utils.utcnow():
+                        next_time += timedelta(seconds=recurring_seconds)
+                    await cursor.execute(
+                        """
+                        UPDATE reminders
+                        SET remind_at = ?, delivery_failures = 0
+                        WHERE id = ?
+                        """,
+                        (next_time.isoformat(), reminder_id),
+                    )
+                elif delivered:
+                    await cursor.execute("DELETE FROM reminders WHERE id = ?", (reminder_id,))
+                else:
+                    await cursor.execute(
+                        """
+                        UPDATE reminders
+                        SET delivery_failures = delivery_failures + 1
+                        WHERE id = ?
+                        """,
+                        (reminder_id,),
+                    )
         await self.bot.db.commit()
 
     @reminder_loop.before_loop

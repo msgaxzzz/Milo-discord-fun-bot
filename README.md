@@ -49,19 +49,22 @@ Fill in `.env` before starting the bot.
 ## What Milo Includes
 
 - AI chat with configurable model allowlists and optional Google Custom Search
+- Chat safety controls for cooldowns, channel rules, role allowlists, and daily usage caps
 - Economy commands with per-guild balances and leaderboards
 - Admin tools for managing server economy balances
 - Farming progression tied to the server economy
 - Games like `/guess`, `/tictactoe`, `/roll`, and `/rps`
 - Fun and media commands for polls, memes, avatars, GIF interactions, and image generation
-- Utility commands for persisted reminders, AFK management, help, moderation, and server info
-- Community tooling for welcome messages, leave messages, announcements, and mod logs
+- Utility commands for persisted reminders, recurring reminders, AFK management, help, moderation, and server info
+- Community tooling for welcome messages, leave messages, scheduled announcements, and mod logs
+- Moderation tooling for warnings, invite/link filters, bad word filters, and channel whitelists
 
 ## Important Behavior
 
 - Economy and farming data are isolated per guild
 - AI chat works in servers and DMs, but server configuration commands are guild-only
-- Reminders are persisted in SQLite and survive restarts
+- Guild chat history is isolated per user instead of being shared by the whole channel
+- Reminders are persisted in SQLite, survive restarts, and can be recurring
 - AFK status is stored per guild and cleared on your next message in that server
 - Real secrets should never be committed to git
 
@@ -163,6 +166,7 @@ Common questions:
 - Does Milo support DMs for AI chat? Yes.
 - Is the economy global across all servers? No, it is isolated per guild.
 - Do reminders survive restarts? Yes.
+- Can I schedule recurring reminders and server announcements? Yes.
 - Do I need OpenAI credentials to run the bot? Only for AI chat features.
 
 See the full [FAQ](./docs/faq.md).
@@ -193,8 +197,8 @@ docs/
 
 Near-term improvements that would strengthen the project:
 
-- automated tests for economy, farming, and reminder flows
-- clearer admin-facing configuration commands
+- automated tests for economy, farming, reminder, and automod flows
+- richer reporting around reminder delivery failures and scheduled announcement failures
 - structured logging and better runtime error reporting
 - richer deployment examples
 - command reference generation from source metadata

@@ -28,6 +28,19 @@ This document summarizes the current slash commands exposed by Milo.
   Works in: servers only.
   Permission: `Manage Server`.
 
+- `/chat-config set-enabled`
+- `/chat-config set-cooldown`
+- `/chat-config set-usage-cap`
+- `/chat-config allow-channel`
+- `/chat-config block-channel`
+- `/chat-config clear-channel-rules`
+- `/chat-config allow-role`
+- `/chat-config remove-role`
+- `/chat-config clear-role-rules`
+  Purpose: control where AI chat can be used, who can use it, and how often.
+  Works in: servers only.
+  Permission: `Manage Server`.
+
 - `/chat-config test`
   Purpose: validate the effective API key for the current server.
   Works in: servers only.
@@ -186,10 +199,15 @@ Purpose: fetch random media from public APIs.
   Purpose: create a persisted reminder.
   Works in: servers and DMs.
 
+- `/reminders recurring`
+  Purpose: create a recurring reminder with a repeat interval.
+  Works in: servers and DMs.
+
 - `/reminders list`
 - `/reminders cancel`
 - `/reminders clear`
-  Purpose: manage your existing reminders.
+- `/reminders snooze`
+  Purpose: manage your existing reminders, including snoozing one into the future.
   Works in: servers and DMs.
 
 - `/afk`
@@ -209,6 +227,9 @@ Purpose: fetch random media from public APIs.
 - `/server-config set-modlog-channel`
 - `/server-config set-welcome-message`
 - `/server-config set-goodbye-message`
+- `/server-config preview-welcome`
+- `/server-config preview-goodbye`
+- `/server-config reset-message`
 - `/server-config reset-channel`
   Purpose: manage server community automation.
   Works in: servers only.
@@ -218,6 +239,34 @@ Purpose: fetch random media from public APIs.
   Purpose: send an announcement to the configured announcement channel or the current channel.
   Works in: servers only.
   Permission: `Manage Server`.
+
+- `/announcements schedule`
+- `/announcements list`
+- `/announcements cancel`
+  Purpose: manage scheduled server announcements.
+  Works in: servers only.
+  Permission: `Manage Server`.
+
+## Moderation
+
+- `/automod view`
+- `/automod toggle-invites`
+- `/automod toggle-links`
+- `/automod set-action`
+- `/automod set-bad-words`
+- `/automod clear-bad-words`
+- `/automod whitelist-channel`
+- `/automod remove-whitelist-channel`
+  Purpose: configure invite filtering, link filtering, blocked words, channel exemptions, and automod actions.
+  Works in: servers only.
+  Permission: `Manage Server`.
+
+- `/warn`
+- `/warnings`
+- `/clear-warning`
+  Purpose: manage per-guild warning history and moderation notes.
+  Works in: servers only.
+  Permission: `Manage Messages`.
 
 ## Notes
 

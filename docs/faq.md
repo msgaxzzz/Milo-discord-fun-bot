@@ -12,6 +12,14 @@ No. Economy balances, leaderboards, and farming progress are stored per guild.
 
 Yes. Reminders are stored in SQLite and replayed after startup.
 
+## Can reminders repeat or be snoozed?
+
+Yes. Use `/reminders recurring` for repeating reminders and `/reminders snooze` to move an existing reminder further out.
+
+## Is AI chat shared between users in the same server channel?
+
+No. Guild chat history is isolated per user, so one member's `/chat` history does not leak into another member's conversation.
+
 ## Do I need OpenAI credentials?
 
 Only if you want AI chat features. The rest of the bot can run without OpenAI credentials.
