@@ -218,6 +218,17 @@ class Fun(commands.Cog):
         option9: str = None,
         option10: str = None,
     ):
+        # Check Add Reactions permission before creating the poll
+        bot_member = interaction.guild.me if interaction.guild else None
+        if bot_member and interaction.channel:
+            perms = interaction.channel.permissions_for(bot_member)
+            if not perms.add_reactions:
+                await interaction.response.send_message(
+                    "I need the **Add Reactions** permission in this channel to create polls.",
+                    ephemeral=True,
+                )
+                return
+
         options = [
             opt
             for opt in [option1, option2, option3, option4, option5, option6, option7, option8, option9, option10]
