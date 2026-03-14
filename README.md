@@ -40,11 +40,12 @@ bash install.sh
 
 ### Windows
 
-```bat
-install.bat
+```powershell
+powershell -ExecutionPolicy Bypass -Command "iwr https://raw.githubusercontent.com/msgaxzzz/Milo-discord-fun-bot/main/install.bat -OutFile install.bat"
+.\install.bat
 ```
 
-The installer creates a local `.venv`, installs dependencies, and generates a local `config.json`.
+The installer creates a local `.venv`, installs dependencies, and generates a local `config.json`. On Windows it can fall back to downloading the repository zip if `git` is not installed.
 
 If you prefer a manual setup, use:
 

@@ -14,26 +14,29 @@ echo --------------------------------------------------
 
 :: ---------------- Variables ----------------
 set "REPO_URL=https://github.com/msgaxzzz/Milo-discord-fun-bot.git"
+set "ZIP_URL=https://github.com/msgaxzzz/Milo-discord-fun-bot/archive/refs/heads/main.zip"
 set "DIR_NAME=Milo-discord-fun-bot"
 set "VENV_DIR=.venv"
-
-:: Check if git exists
-where git >nul 2>&1
-if errorlevel 1 (
-    echo Git is not installed or not in PATH. Please install git first.
-    pause
-    exit /b 1
-)
 
 if exist "main.py" if exist "requirements.txt" goto use_current_dir
 
 if not exist "%DIR_NAME%" (
-    echo Cloning repository from %REPO_URL%...
-    git clone "%REPO_URL%"
+    where git >nul 2>&1
     if errorlevel 1 (
-        echo Failed to clone repository.
-        pause
-        exit /b 1
+        echo Git is not available. Downloading source archive instead...
+        call :download_zip_source
+        if errorlevel 1 (
+            pause
+            exit /b 1
+        )
+    ) else (
+        echo Cloning repository from %REPO_URL%...
+        git clone "%REPO_URL%"
+        if errorlevel 1 (
+            echo Failed to clone repository.
+            pause
+            exit /b 1
+        )
     )
     cd "%DIR_NAME%" || (
         echo Cannot enter directory %DIR_NAME%.
@@ -167,3 +170,42 @@ echo   %VENV_DIR%\Scripts\activate
 echo Update log: https://github.com/msgaxzzz/Milo-discord-fun-bot/blob/main/CHANGELOG.md
 
 pause
+exit /b 0
+
+:download_zip_source
+set "ARCHIVE_FILE=%TEMP%\milo-discord-fun-bot-main.zip"
+set "ARCHIVE_ROOT=%TEMP%\milo-discord-fun-bot-install-%RANDOM%%RANDOM%"
+
+echo Downloading %ZIP_URL%...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri '%ZIP_URL%' -OutFile '%ARCHIVE_FILE%'"
+if errorlevel 1 (
+    echo Failed to download the source archive.
+    exit /b 1
+)
+
+echo Extracting archive...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Expand-Archive -LiteralPath '%ARCHIVE_FILE%' -DestinationPath '%ARCHIVE_ROOT%' -Force"
+if errorlevel 1 (
+    echo Failed to extract the source archive.
+    if exist "%ARCHIVE_FILE%" del /q "%ARCHIVE_FILE%" >nul 2>&1
+    exit /b 1
+)
+
+if not exist "%ARCHIVE_ROOT%\%DIR_NAME%-main" (
+    echo The extracted archive did not contain the expected folder structure.
+    if exist "%ARCHIVE_FILE%" del /q "%ARCHIVE_FILE%" >nul 2>&1
+    if exist "%ARCHIVE_ROOT%" rmdir /s /q "%ARCHIVE_ROOT%" >nul 2>&1
+    exit /b 1
+)
+
+move "%ARCHIVE_ROOT%\%DIR_NAME%-main" "%DIR_NAME%" >nul
+if errorlevel 1 (
+    echo Failed to move the extracted source into %DIR_NAME%.
+    if exist "%ARCHIVE_FILE%" del /q "%ARCHIVE_FILE%" >nul 2>&1
+    if exist "%ARCHIVE_ROOT%" rmdir /s /q "%ARCHIVE_ROOT%" >nul 2>&1
+    exit /b 1
+)
+
+if exist "%ARCHIVE_FILE%" del /q "%ARCHIVE_FILE%" >nul 2>&1
+if exist "%ARCHIVE_ROOT%" rmdir /s /q "%ARCHIVE_ROOT%" >nul 2>&1
+exit /b 0
