@@ -11,6 +11,9 @@ from discord.ext import commands, tasks
 
 REMINDER_LIMIT_SECONDS = 30 * 24 * 60 * 60
 REMINDER_POLL_SECONDS = 30
+MAX_REMINDER_DELIVERY_FAILURES = 5
+REMINDER_RETRY_BASE_SECONDS = 300
+REMINDER_RETRY_MAX_SECONDS = 21600
 
 
 def parse_duration_spec(value: str) -> Optional[int]:
@@ -24,6 +27,7 @@ def parse_duration_spec(value: str) -> Optional[int]:
 class Utility(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self.afk_cache: dict[tuple[int, int], tuple[str, str]] = {}
         if not hasattr(bot, "start_time"):
             self.bot.start_time = discord.utils.utcnow()
         self.reminder_loop.start()
@@ -64,15 +68,64 @@ class Utility(commands.Cog):
                 await cursor.execute("ALTER TABLE reminders ADD COLUMN recurring_seconds INTEGER")
             if "delivery_failures" not in reminder_columns:
                 await cursor.execute("ALTER TABLE reminders ADD COLUMN delivery_failures INTEGER NOT NULL DEFAULT 0")
+            if "disabled" not in reminder_columns:
+                await cursor.execute("ALTER TABLE reminders ADD COLUMN disabled INTEGER NOT NULL DEFAULT 0")
+            if "last_error" not in reminder_columns:
+                await cursor.execute("ALTER TABLE reminders ADD COLUMN last_error TEXT")
+            await cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(disabled, remind_at)"
+            )
+            await cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_reminders_user_remind_at ON reminders(user_id, remind_at)"
+            )
         await self.bot.db.commit()
 
     async def get_afk_status(self, guild_id: int, user_id: int):
+        cache_key = (guild_id, user_id)
+        if cache_key in self.afk_cache:
+            return self.afk_cache[cache_key]
         async with self.bot.db.cursor() as cursor:
             await cursor.execute(
                 "SELECT reason, set_at FROM afk_statuses WHERE guild_id = ? AND user_id = ?",
                 (guild_id, user_id),
             )
-            return await cursor.fetchone()
+            row = await cursor.fetchone()
+        if row:
+            self.afk_cache[cache_key] = row
+        return row
+
+    async def get_many_afk_statuses(self, guild_id: int, user_ids: list[int]) -> dict[int, tuple[str, str]]:
+        statuses: dict[int, tuple[str, str]] = {}
+        missing_ids = []
+        for user_id in user_ids:
+            cache_key = (guild_id, user_id)
+            cached = self.afk_cache.get(cache_key)
+            if cached:
+                statuses[user_id] = cached
+            else:
+                missing_ids.append(user_id)
+
+        if not missing_ids:
+            return statuses
+
+        placeholders = ",".join("?" for _ in missing_ids)
+        async with self.bot.db.cursor() as cursor:
+            await cursor.execute(
+                f"""
+                SELECT user_id, reason, set_at
+                FROM afk_statuses
+                WHERE guild_id = ? AND user_id IN ({placeholders})
+                """,
+                [guild_id, *missing_ids],
+            )
+            rows = await cursor.fetchall()
+
+        for user_id, reason, set_at in rows:
+            status = (reason, set_at)
+            self.afk_cache[(guild_id, user_id)] = status
+            statuses[user_id] = status
+
+        return statuses
 
     async def set_afk_status(self, guild_id: int, user_id: int, reason: str):
         set_at = discord.utils.utcnow().isoformat()
@@ -87,6 +140,7 @@ class Utility(commands.Cog):
                 (guild_id, user_id, reason, set_at),
             )
         await self.bot.db.commit()
+        self.afk_cache[(guild_id, user_id)] = (reason, set_at)
 
     async def clear_afk_status(self, guild_id: int, user_id: int):
         async with self.bot.db.cursor() as cursor:
@@ -95,12 +149,13 @@ class Utility(commands.Cog):
                 (guild_id, user_id),
             )
         await self.bot.db.commit()
+        self.afk_cache.pop((guild_id, user_id), None)
 
     async def list_user_reminders(self, user_id: int):
         async with self.bot.db.cursor() as cursor:
             await cursor.execute(
                 """
-                SELECT id, guild_id, channel_id, remind_at, reason, recurring_seconds, delivery_failures
+                SELECT id, guild_id, channel_id, remind_at, reason, recurring_seconds, delivery_failures, disabled, last_error
                 FROM reminders
                 WHERE user_id = ?
                 ORDER BY remind_at ASC
@@ -108,6 +163,10 @@ class Utility(commands.Cog):
                 (user_id,),
             )
             return await cursor.fetchall()
+
+    def reminder_retry_delay(self, failures: int) -> timedelta:
+        seconds = min(REMINDER_RETRY_BASE_SECONDS * (2 ** max(failures - 1, 0)), REMINDER_RETRY_MAX_SECONDS)
+        return timedelta(seconds=seconds)
 
     async def create_reminder(
         self,
@@ -472,7 +531,7 @@ class Utility(commands.Cog):
             return
 
         lines = []
-        for reminder_id, guild_id, channel_id, remind_at, reason, recurring_seconds, delivery_failures in reminders[:20]:
+        for reminder_id, guild_id, channel_id, remind_at, reason, recurring_seconds, delivery_failures, disabled, last_error in reminders[:20]:
             if guild_id is None:
                 scope = "DM"
             else:
@@ -481,8 +540,10 @@ class Utility(commands.Cog):
             channel_text = f", channel <#{channel_id}>" if channel_id else ""
             recurring_text = "" if not recurring_seconds else f" • repeats every `{int(recurring_seconds)}s`"
             failure_text = "" if not delivery_failures else f" • delivery failures: {delivery_failures}"
+            disabled_text = " • paused after repeated delivery failures" if disabled else ""
+            error_text = "" if not last_error else f"\nLast error: {last_error[:120]}"
             lines.append(
-                f"`{reminder_id}` • {discord.utils.format_dt(discord.utils.parse_time(remind_at), style='R')} • {scope}{channel_text}{recurring_text}{failure_text}\n{reason}"
+                f"`{reminder_id}` • {discord.utils.format_dt(discord.utils.parse_time(remind_at), style='R')} • {scope}{channel_text}{recurring_text}{failure_text}{disabled_text}\n{reason}{error_text}"
             )
 
         embed = discord.Embed(title="Active Reminders", description="\n\n".join(lines), color=discord.Color.gold())
@@ -519,7 +580,7 @@ class Utility(commands.Cog):
             await cursor.execute(
                 """
                 UPDATE reminders
-                SET remind_at = ?, delivery_failures = 0
+                SET remind_at = ?, delivery_failures = 0, disabled = 0, last_error = NULL
                 WHERE id = ? AND user_id = ?
                 """,
                 (new_time.isoformat(), reminder_id, interaction.user.id),
@@ -566,10 +627,22 @@ class Utility(commands.Cog):
             await message.channel.send(f"Welcome back {message.author.mention}! Your AFK status has been removed.")
 
         notified = []
+        mentioned_users = []
+        seen_user_ids = set()
         for mentioned_user in message.mentions:
+            if mentioned_user.id in seen_user_ids:
+                continue
+            seen_user_ids.add(mentioned_user.id)
+            mentioned_users.append(mentioned_user)
+
+        mention_statuses = await self.get_many_afk_statuses(
+            message.guild.id,
+            [mentioned_user.id for mentioned_user in mentioned_users if not mentioned_user.bot],
+        )
+        for mentioned_user in mentioned_users:
             if mentioned_user.bot:
                 continue
-            status = await self.get_afk_status(message.guild.id, mentioned_user.id)
+            status = mention_statuses.get(mentioned_user.id)
             if not status:
                 continue
 
@@ -590,9 +663,9 @@ class Utility(commands.Cog):
         async with self.bot.db.cursor() as cursor:
             await cursor.execute(
                 """
-                SELECT id, user_id, channel_id, reason, remind_at, recurring_seconds
+                SELECT id, user_id, channel_id, reason, remind_at, recurring_seconds, delivery_failures
                 FROM reminders
-                WHERE remind_at <= ?
+                WHERE disabled = 0 AND remind_at <= ?
                 ORDER BY remind_at ASC
                 """,
                 (now,),
@@ -602,13 +675,15 @@ class Utility(commands.Cog):
         if not reminders:
             return
 
-        for reminder_id, user_id, channel_id, reason, remind_at, recurring_seconds in reminders:
+        for reminder_id, user_id, channel_id, reason, remind_at, recurring_seconds, delivery_failures in reminders:
             user = self.bot.get_user(user_id)
+            failure_reason = "delivery failed"
             if user is None:
                 try:
                     user = await self.bot.fetch_user(user_id)
                 except discord.HTTPException:
                     user = None
+                    failure_reason = "unable to fetch the reminder recipient"
 
             delivered = False
             if user is not None:
@@ -617,6 +692,10 @@ class Utility(commands.Cog):
                     delivered = True
                 except discord.Forbidden:
                     delivered = False
+                    failure_reason = "direct messages are disabled for the recipient"
+                except discord.HTTPException:
+                    delivered = False
+                    failure_reason = "failed to send the reminder through direct messages"
 
             if not delivered and channel_id is not None:
                 channel = self.bot.get_channel(channel_id)
@@ -625,6 +704,7 @@ class Utility(commands.Cog):
                         channel = await self.bot.fetch_channel(channel_id)
                     except discord.HTTPException:
                         channel = None
+                        failure_reason = "unable to access the fallback channel"
 
                 if channel is not None:
                     try:
@@ -633,6 +713,7 @@ class Utility(commands.Cog):
                         delivered = True
                     except discord.HTTPException:
                         delivered = False
+                        failure_reason = "failed to send the reminder in the fallback channel"
 
             async with self.bot.db.cursor() as cursor:
                 if delivered and recurring_seconds:
@@ -642,7 +723,7 @@ class Utility(commands.Cog):
                     await cursor.execute(
                         """
                         UPDATE reminders
-                        SET remind_at = ?, delivery_failures = 0
+                        SET remind_at = ?, delivery_failures = 0, disabled = 0, last_error = NULL
                         WHERE id = ?
                         """,
                         (next_time.isoformat(), reminder_id),
@@ -650,14 +731,26 @@ class Utility(commands.Cog):
                 elif delivered:
                     await cursor.execute("DELETE FROM reminders WHERE id = ?", (reminder_id,))
                 else:
-                    await cursor.execute(
-                        """
-                        UPDATE reminders
-                        SET delivery_failures = delivery_failures + 1
-                        WHERE id = ?
-                        """,
-                        (reminder_id,),
-                    )
+                    next_failures = delivery_failures + 1
+                    if next_failures >= MAX_REMINDER_DELIVERY_FAILURES:
+                        await cursor.execute(
+                            """
+                            UPDATE reminders
+                            SET delivery_failures = ?, disabled = 1, last_error = ?
+                            WHERE id = ?
+                            """,
+                            (next_failures, failure_reason, reminder_id),
+                        )
+                    else:
+                        retry_at = discord.utils.utcnow() + self.reminder_retry_delay(next_failures)
+                        await cursor.execute(
+                            """
+                            UPDATE reminders
+                            SET remind_at = ?, delivery_failures = ?, last_error = ?
+                            WHERE id = ?
+                            """,
+                            (retry_at.isoformat(), next_failures, failure_reason, reminder_id),
+                        )
         await self.bot.db.commit()
 
     @reminder_loop.before_loop

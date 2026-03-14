@@ -43,6 +43,12 @@ class Moderation(commands.Cog):
                 )
                 """
             )
+            await cursor.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_moderation_warnings_guild_user_created_at
+                ON moderation_warnings(guild_id, user_id, created_at DESC)
+                """
+            )
         await self.bot.db.commit()
 
     def _serialize_ids(self, ids: List[int]) -> Optional[str]:
@@ -276,6 +282,11 @@ class Moderation(commands.Cog):
             deleted = False
 
         details = [f"User: {message.author.mention}", f"Channel: {message.channel.mention}", f"Reason: {reason}"]
+        if not deleted:
+            details.append("Action skipped because the original message could not be deleted")
+            await self.log_action(message.guild, "Automod Triggered", "\n".join(details), discord.Color.red())
+            return
+
         if action == "warn":
             warning_id = await self.add_warning(message.guild.id, message.author.id, self.bot.user.id, f"Automod: {reason}")
             details.append(f"Warning ID: `{warning_id}`")
@@ -300,9 +311,6 @@ class Moderation(commands.Cog):
                 except (discord.Forbidden, discord.HTTPException):
                     pass
 
-        if not deleted:
-            details.append("Note: message could not be deleted")
-
         await self.log_action(message.guild, "Automod Triggered", "\n".join(details), discord.Color.red())
 
     @commands.Cog.listener("on_message")
@@ -326,7 +334,10 @@ class Moderation(commands.Cog):
             violation = "Links are not allowed."
         else:
             for word in settings["bad_words"]:
-                if word and word in lowered:
+                if not word:
+                    continue
+                pattern = re.compile(rf"(?<!\w){re.escape(word)}(?!\w)", re.IGNORECASE)
+                if pattern.search(lowered):
                     violation = f"Blocked word detected: `{word}`"
                     break
 

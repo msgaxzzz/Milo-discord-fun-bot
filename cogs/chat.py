@@ -15,6 +15,10 @@ DEFAULT_API_BASE = "https://api.openai.com/v1"
 DEFAULT_MODEL = "gpt-3.5-turbo"
 MAX_CONVERSATION_HISTORY = 10
 MAX_PERSONA_LENGTH = 500
+MAX_EMBED_FIELD_LENGTH = 1024
+MAX_EMBED_DESCRIPTION_LENGTH = 4096
+CONVERSATION_TTL = timedelta(hours=6)
+COOLDOWN_RETENTION = timedelta(days=1)
 DEFAULT_PERSONA = (
     "You are Milo, a friendly and helpful Discord bot. "
     "You can access real-time information using the 'google_search' tool for current events or specific data. "
@@ -27,6 +31,7 @@ class Chat(commands.Cog):
         self.bot = bot
         self.conversations: Dict[Tuple[Any, ...], List[Dict[str, Any]]] = defaultdict(list)
         self.chat_cooldowns: Dict[Tuple[int, int], discord.utils.utcnow] = {}
+        self.conversation_last_used: Dict[Tuple[Any, ...], discord.utils.utcnow] = {}
         self.load_config()
         self.bot.loop.create_task(self.setup_database())
 
@@ -156,7 +161,9 @@ class Chat(commands.Cog):
         enabled, cooldown_seconds, daily_usage_limit, allowed_channel_ids, blocked_channel_ids, allowed_role_ids = row
         return {
             "enabled": bool(enabled),
-            "cooldown_seconds": cooldown_seconds or default_policy["cooldown_seconds"],
+            "cooldown_seconds": (
+                default_policy["cooldown_seconds"] if cooldown_seconds is None else int(cooldown_seconds)
+            ),
             "daily_usage_limit": daily_usage_limit,
             "allowed_channel_ids": self._deserialize_ids(allowed_channel_ids),
             "blocked_channel_ids": self._deserialize_ids(blocked_channel_ids),
@@ -313,6 +320,39 @@ class Chat(commands.Cog):
             labels.append(role.mention if role else f"`{role_id}`")
         return ", ".join(labels)
 
+    def _truncate_field_value(self, value: str, limit: int = MAX_EMBED_FIELD_LENGTH) -> str:
+        if len(value) <= limit:
+            return value
+        return f"{value[: limit - 1].rstrip()}…"
+
+    def _trim_history(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        if len(messages) <= MAX_CONVERSATION_HISTORY:
+            return messages
+        return messages[0:1] + messages[-(MAX_CONVERSATION_HISTORY - 1) :]
+
+    def _prune_runtime_state(self) -> None:
+        now = discord.utils.utcnow()
+        expired_conversations = [
+            key for key, last_used in self.conversation_last_used.items() if now - last_used > CONVERSATION_TTL
+        ]
+        for key in expired_conversations:
+            self.conversation_last_used.pop(key, None)
+            self.conversations.pop(key, None)
+
+        expired_cooldowns = [
+            key for key, last_used in self.chat_cooldowns.items() if now - last_used > COOLDOWN_RETENTION
+        ]
+        for key in expired_cooldowns:
+            self.chat_cooldowns.pop(key, None)
+
+    def _set_conversation_state(self, context_key: Tuple[Any, ...], messages: List[Dict[str, Any]]) -> None:
+        if messages:
+            self.conversations[context_key] = messages
+            self.conversation_last_used[context_key] = discord.utils.utcnow()
+            return
+        self.conversations.pop(context_key, None)
+        self.conversation_last_used.pop(context_key, None)
+
     chat_config = app_commands.Group(
         name="chat-config",
         description="Configure the AI chat settings for a server.",
@@ -426,6 +466,7 @@ class Chat(commands.Cog):
     @chat_config.command(name="view", description="View the current chat configuration.")
     @app_commands.checks.has_permissions(manage_guild=True)
     async def view_config(self, interaction: discord.Interaction):
+        self._prune_runtime_state()
         guild_config = await self.get_guild_config(interaction.guild.id) or (None, None)
         guild_key, guild_persona = guild_config
         policy = await self.get_policy(interaction.guild.id)
@@ -439,10 +480,18 @@ class Chat(commands.Cog):
             key_status = "Using bot default key"
 
         embed.add_field(name="Server API Key", value=key_status, inline=False)
-        embed.add_field(name="AI Persona", value=guild_persona or DEFAULT_PERSONA, inline=False)
+        embed.add_field(
+            name="AI Persona",
+            value=self._truncate_field_value(guild_persona or DEFAULT_PERSONA),
+            inline=False,
+        )
         embed.add_field(name="Web Search", value="Enabled" if self.enable_web_search else "Disabled", inline=False)
-        embed.add_field(name="API Base URL", value=f"`{self.api_base}`", inline=False)
-        embed.add_field(name="Allowed Models", value=", ".join(f"`{model}`" for model in self.allowed_models), inline=False)
+        embed.add_field(name="API Base URL", value=self._truncate_field_value(f"`{self.api_base}`"), inline=False)
+        embed.add_field(
+            name="Allowed Models",
+            value=self._truncate_field_value(", ".join(f"`{model}`" for model in self.allowed_models)),
+            inline=False,
+        )
         embed.add_field(name="Chat Enabled", value="Yes" if policy["enabled"] else "No", inline=True)
         embed.add_field(name="Cooldown", value=f"{policy['cooldown_seconds']}s", inline=True)
         embed.add_field(
@@ -452,17 +501,17 @@ class Chat(commands.Cog):
         )
         embed.add_field(
             name="Allowed Channels",
-            value=self._channel_labels(interaction.guild, policy["allowed_channel_ids"]),
+            value=self._truncate_field_value(self._channel_labels(interaction.guild, policy["allowed_channel_ids"])),
             inline=False,
         )
         embed.add_field(
             name="Blocked Channels",
-            value=self._channel_labels(interaction.guild, policy["blocked_channel_ids"]),
+            value=self._truncate_field_value(self._channel_labels(interaction.guild, policy["blocked_channel_ids"])),
             inline=False,
         )
         embed.add_field(
             name="Allowed Roles",
-            value=self._role_labels(interaction.guild, policy["allowed_role_ids"]),
+            value=self._truncate_field_value(self._role_labels(interaction.guild, policy["allowed_role_ids"])),
             inline=False,
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -489,7 +538,11 @@ class Chat(commands.Cog):
     async def list_models(self, interaction: discord.Interaction):
         embed = discord.Embed(title="Chat Models", color=discord.Color.blurple())
         embed.add_field(name="Default Model", value=f"`{self.default_model}`", inline=False)
-        embed.add_field(name="Allowed Models", value="\n".join(f"`{model}`" for model in self.allowed_models), inline=False)
+        embed.add_field(
+            name="Allowed Models",
+            value=self._truncate_field_value("\n".join(f"`{model}`" for model in self.allowed_models)),
+            inline=False,
+        )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @app_commands.command(name="chat", description="Chat with the AI, with optional live web search.")
@@ -500,6 +553,7 @@ class Chat(commands.Cog):
     )
     @app_commands.autocomplete(model=model_autocomplete)
     async def chat(self, interaction: discord.Interaction, prompt: str, model: Optional[str] = None, search_web: bool = False):
+        self._prune_runtime_state()
         guild_id = interaction.guild.id if interaction.guild else None
         chosen_model = model or self.default_model
         policy = await self.get_policy(guild_id)
@@ -532,12 +586,17 @@ class Chat(commands.Cog):
 
         await interaction.response.defer()
         context_key = self._context_key(interaction)
-        if context_key not in self.conversations:
-            self.conversations[context_key].append({"role": "system", "content": persona or DEFAULT_PERSONA})
-        self.conversations[context_key].append({"role": "user", "content": prompt})
+        existing_messages = list(self.conversations.get(context_key, []))
+        if not existing_messages:
+            existing_messages = [{"role": "system", "content": persona or DEFAULT_PERSONA}]
+
+        original_messages = list(existing_messages)
+        working_messages = list(existing_messages)
+        working_messages.append({"role": "user", "content": prompt})
+        self._set_conversation_state(context_key, working_messages)
 
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-        payload = {"model": chosen_model, "messages": self.conversations[context_key]}
+        payload = {"model": chosen_model, "messages": working_messages}
         if self.enable_web_search and search_web:
             payload["tools"] = self.define_tools()
             payload["tool_choice"] = "auto"
@@ -548,7 +607,7 @@ class Chat(commands.Cog):
                 if response.status != 200:
                     error_data = await response.json()
                     error_message = error_data.get("error", {}).get("message", "An unknown API error occurred.")
-                    self.conversations[context_key].pop()
+                    self._set_conversation_state(context_key, original_messages)
                     await interaction.followup.send(f"API Error: {response.status} - {error_message}", ephemeral=True)
                     return
 
@@ -557,13 +616,14 @@ class Chat(commands.Cog):
 
                 if ai_message.get("tool_calls") and self.enable_web_search and search_web:
                     thinking_message = await interaction.followup.send("Searching the web...", wait=True)
-                    self.conversations[context_key].append(ai_message)
+                    working_messages.append(ai_message)
+                    self._set_conversation_state(context_key, working_messages)
                     tool_call = ai_message["tool_calls"][0]
                     function_args = json.loads(tool_call["function"]["arguments"])
                     query = function_args.get("query", "")
                     tool_response = await self.execute_google_search(query)
 
-                    self.conversations[context_key].append(
+                    working_messages.append(
                         {
                             "tool_call_id": tool_call["id"],
                             "role": "tool",
@@ -571,32 +631,29 @@ class Chat(commands.Cog):
                             "content": tool_response,
                         }
                     )
+                    self._set_conversation_state(context_key, working_messages)
 
-                    final_payload = {"model": chosen_model, "messages": self.conversations[context_key]}
+                    final_payload = {"model": chosen_model, "messages": working_messages}
                     async with self.session.post(
                         f"{self.api_base}/chat/completions",
                         headers=headers,
                         json=final_payload,
                     ) as final_response:
                         if final_response.status != 200:
-                            self.conversations[context_key].pop()
-                            self.conversations[context_key].pop()
-                            self.conversations[context_key].pop()
+                            self._set_conversation_state(context_key, original_messages)
                             await thinking_message.edit(content="The model failed after web search. Please try again.")
                             return
                         final_data = await final_response.json()
                         final_answer = final_data["choices"][0]["message"]["content"]
-                        await thinking_message.edit(content=final_answer)
+                        await thinking_message.edit(
+                            content=self._truncate_field_value(final_answer, MAX_EMBED_DESCRIPTION_LENGTH)
+                        )
                 else:
                     final_answer = ai_message.get("content") or "The model returned an empty response."
                     await interaction.edit_original_response(content=final_answer)
 
-                self.conversations[context_key].append({"role": "assistant", "content": final_answer})
-                if len(self.conversations[context_key]) > MAX_CONVERSATION_HISTORY:
-                    self.conversations[context_key] = (
-                        self.conversations[context_key][0:1]
-                        + self.conversations[context_key][-(MAX_CONVERSATION_HISTORY - 1):]
-                    )
+                working_messages.append({"role": "assistant", "content": final_answer})
+                self._set_conversation_state(context_key, self._trim_history(working_messages))
 
                 if interaction.guild_id:
                     cooldown_key = (interaction.guild_id, interaction.user.id)
@@ -605,16 +662,14 @@ class Chat(commands.Cog):
 
         except Exception as error:
             logger.exception("Chat processing error: %s", error)
-            if self.conversations.get(context_key):
-                last_message = self.conversations[context_key][-1]
-                if last_message.get("role") == "user" and last_message.get("content") == prompt:
-                    self.conversations[context_key].pop()
+            self._set_conversation_state(context_key, original_messages)
             await interaction.followup.send("An unexpected error occurred. Please try again later.", ephemeral=True)
 
     @app_commands.command(name="chat-reset", description="Reset your conversation history with the AI.")
     async def chat_reset(self, interaction: discord.Interaction):
+        self._prune_runtime_state()
         context_key = self._context_key(interaction)
-        self.conversations.pop(context_key, None)
+        self._set_conversation_state(context_key, [])
         await interaction.response.send_message("Your conversation history has been reset.", ephemeral=True)
 
 

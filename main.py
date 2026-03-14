@@ -1,16 +1,54 @@
-import discord
-from discord.ext import commands
-from discord import app_commands
+import asyncio
 import os
 import sys
-import aiosqlite
-import aiohttp
 from collections import defaultdict
 import datetime
+from pathlib import Path
 from typing import Optional
 import logging
 
-from config_loader import load_runtime_config
+
+def _find_local_venv_python() -> Optional[Path]:
+    project_root = Path(__file__).resolve().parent
+    candidates = [
+        project_root / ".venv" / "bin" / "python",
+        project_root / ".venv" / "Scripts" / "python.exe",
+    ]
+    return next((candidate for candidate in candidates if candidate.exists()), None)
+
+
+def _maybe_reexec_into_local_venv() -> None:
+    if sys.prefix != sys.base_prefix:
+        return
+
+    venv_python = _find_local_venv_python()
+    if not venv_python:
+        return
+
+    os.execv(str(venv_python), [str(venv_python), __file__, *sys.argv[1:]])
+
+
+_maybe_reexec_into_local_venv()
+
+try:
+    import aiohttp
+    import aiosqlite
+    import discord
+    from discord import app_commands
+    from discord.ext import commands
+
+    from config_loader import load_runtime_config
+except ModuleNotFoundError as exc:
+    missing_package = exc.name or "a required package"
+    print(
+        f"Missing Python dependency: {missing_package}\n"
+        "Create and activate a local virtual environment, then install requirements:\n"
+        "  python3 -m venv .venv\n"
+        "  source .venv/bin/activate\n"
+        "  python -m pip install -r requirements.txt",
+        file=sys.stderr,
+    )
+    sys.exit(1)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -21,6 +59,8 @@ DATABASE_PATH = "database/main.db"
 COGS_FOLDER = "cogs"
 SPAM_THRESHOLD = 5
 SPAM_TIMEFRAME = 7  # seconds
+MESSAGE_LOG_BATCH_SIZE = 50
+MESSAGE_LOG_FLUSH_SECONDS = 2
 
 
 config = load_runtime_config()
@@ -42,6 +82,8 @@ class FunBot(commands.Bot):
         self.db: Optional[aiosqlite.Connection] = None
         self.http_session: Optional[aiohttp.ClientSession] = None
         self.user_message_timestamps = defaultdict(list)
+        self.message_log_queue: asyncio.Queue[Optional[tuple[int, int, int, str]]] = asyncio.Queue()
+        self.message_log_task: Optional[asyncio.Task] = None
         self.start_time = discord.utils.utcnow()
 
     async def setup_hook(self):
@@ -69,6 +111,7 @@ class FunBot(commands.Bot):
             """
             )
         await self.db.commit()
+        self.message_log_task = asyncio.create_task(self._message_log_worker())
 
         # Load all cogs
         for filename in os.listdir(COGS_FOLDER):
@@ -88,6 +131,48 @@ class FunBot(commands.Bot):
         print(f"Bot ID: {self.user.id}")
         print("------")
 
+    async def _flush_message_logs(self, batch: list[tuple[int, int, int, str]]) -> None:
+        if not batch or not self.db:
+            return
+        async with self.db.cursor() as cursor:
+            await cursor.executemany(
+                "INSERT OR IGNORE INTO messages (message_id, guild_id, user_id, timestamp) VALUES (?, ?, ?, ?)",
+                batch,
+            )
+        await self.db.commit()
+
+    async def _message_log_worker(self) -> None:
+        batch: list[tuple[int, int, int, str]] = []
+        loop = asyncio.get_running_loop()
+        try:
+            while True:
+                item = await self.message_log_queue.get()
+                if item is None:
+                    break
+                batch.append(item)
+                deadline = loop.time() + MESSAGE_LOG_FLUSH_SECONDS
+                while len(batch) < MESSAGE_LOG_BATCH_SIZE:
+                    timeout = deadline - loop.time()
+                    if timeout <= 0:
+                        break
+                    try:
+                        item = await asyncio.wait_for(self.message_log_queue.get(), timeout=timeout)
+                    except asyncio.TimeoutError:
+                        break
+                    if item is None:
+                        await self._flush_message_logs(batch)
+                        return
+                    batch.append(item)
+                await self._flush_message_logs(batch)
+                batch.clear()
+        except asyncio.CancelledError:
+            if batch:
+                await self._flush_message_logs(batch)
+            raise
+
+        if batch:
+            await self._flush_message_logs(batch)
+
     async def on_message(self, message: discord.Message):
         """Handle incoming messages for logging and spam detection."""
         if message.author.bot:
@@ -96,12 +181,9 @@ class FunBot(commands.Bot):
         # Log message to database
         if message.guild and self.db:
             try:
-                async with self.db.cursor() as cursor:
-                    await cursor.execute(
-                        "INSERT INTO messages (message_id, guild_id, user_id, timestamp) VALUES (?, ?, ?, ?)",
-                        (message.id, message.guild.id, message.author.id, message.created_at.isoformat()),
-                    )
-                await self.db.commit()
+                await self.message_log_queue.put(
+                    (message.id, message.guild.id, message.author.id, message.created_at.isoformat())
+                )
             except Exception as e:
                 logger.error(f"Error logging message to database: {e}")
 
@@ -142,6 +224,12 @@ class FunBot(commands.Bot):
         await self.process_commands(message)
 
     async def close(self):
+        if self.message_log_task:
+            await self.message_log_queue.put(None)
+            try:
+                await self.message_log_task
+            except Exception:
+                logger.exception("Error while flushing queued message logs during shutdown.")
         if self.http_session and not self.http_session.closed:
             await self.http_session.close()
         if self.db:

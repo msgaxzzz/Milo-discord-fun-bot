@@ -11,6 +11,9 @@ DEFAULT_WELCOME_MESSAGE = "Welcome to {guild}, {member.mention}!"
 DEFAULT_GOODBYE_MESSAGE = "{member} left {guild}."
 SCHEDULE_POLL_SECONDS = 30
 TEMPLATE_FIELDS = {"member", "member.mention", "guild"}
+MAX_SCHEDULE_DELIVERY_FAILURES = 5
+SCHEDULE_RETRY_BASE_SECONDS = 300
+SCHEDULE_RETRY_MAX_SECONDS = 21600
 
 
 def parse_duration(value: str) -> Optional[int]:
@@ -58,6 +61,24 @@ class Community(commands.Cog):
                     interval_seconds INTEGER
                 )
                 """
+            )
+            await cursor.execute("PRAGMA table_info(scheduled_announcements)")
+            announcement_columns = [row[1] for row in await cursor.fetchall()]
+            if "delivery_failures" not in announcement_columns:
+                await cursor.execute(
+                    "ALTER TABLE scheduled_announcements ADD COLUMN delivery_failures INTEGER NOT NULL DEFAULT 0"
+                )
+            if "disabled" not in announcement_columns:
+                await cursor.execute(
+                    "ALTER TABLE scheduled_announcements ADD COLUMN disabled INTEGER NOT NULL DEFAULT 0"
+                )
+            if "last_error" not in announcement_columns:
+                await cursor.execute("ALTER TABLE scheduled_announcements ADD COLUMN last_error TEXT")
+            await cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_scheduled_announcements_due ON scheduled_announcements(disabled, send_at)"
+            )
+            await cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_scheduled_announcements_guild_send_at ON scheduled_announcements(guild_id, send_at)"
             )
         await self.bot.db.commit()
 
@@ -118,6 +139,18 @@ class Community(commands.Cog):
     def render_template(self, template: Optional[str], member: discord.abc.User, guild: discord.Guild, default: str) -> str:
         text = template or default
         return text.format(member=member, guild=guild.name)
+
+    def try_render_template(
+        self, template: Optional[str], member: discord.abc.User, guild: discord.Guild, default: str
+    ) -> tuple[Optional[str], Optional[str]]:
+        try:
+            return self.render_template(template, member, guild, default), None
+        except Exception as error:
+            return None, str(error)
+
+    def schedule_retry_delay(self, failures: int) -> timedelta:
+        seconds = min(SCHEDULE_RETRY_BASE_SECONDS * (2 ** max(failures - 1, 0)), SCHEDULE_RETRY_MAX_SECONDS)
+        return timedelta(seconds=seconds)
 
     async def _resolve_channel(self, channel_id: Optional[int]):
         if channel_id is None:
@@ -272,14 +305,30 @@ class Community(commands.Cog):
     @app_commands.checks.has_permissions(manage_guild=True)
     async def preview_welcome(self, interaction: discord.Interaction):
         settings = await self.get_settings(interaction.guild_id)
-        content = self.render_template(settings["welcome_message"], interaction.user, interaction.guild, DEFAULT_WELCOME_MESSAGE)
+        content, error = self.try_render_template(
+            settings["welcome_message"], interaction.user, interaction.guild, DEFAULT_WELCOME_MESSAGE
+        )
+        if error:
+            await interaction.response.send_message(
+                "The saved welcome template is invalid. Reset or update it before using previews.",
+                ephemeral=True,
+            )
+            return
         await interaction.response.send_message(content, ephemeral=True)
 
     @server_config.command(name="preview-goodbye", description="Preview the goodbye message template.")
     @app_commands.checks.has_permissions(manage_guild=True)
     async def preview_goodbye(self, interaction: discord.Interaction):
         settings = await self.get_settings(interaction.guild_id)
-        content = self.render_template(settings["goodbye_message"], interaction.user, interaction.guild, DEFAULT_GOODBYE_MESSAGE)
+        content, error = self.try_render_template(
+            settings["goodbye_message"], interaction.user, interaction.guild, DEFAULT_GOODBYE_MESSAGE
+        )
+        if error:
+            await interaction.response.send_message(
+                "The saved goodbye template is invalid. Reset or update it before using previews.",
+                ephemeral=True,
+            )
+            return
         await interaction.response.send_message(content, ephemeral=True)
 
     @server_config.command(name="reset-message", description="Reset one message template to its default.")
@@ -400,7 +449,7 @@ class Community(commands.Cog):
         async with self.bot.db.cursor() as cursor:
             await cursor.execute(
                 """
-                SELECT id, channel_id, send_at, interval_seconds, message
+                SELECT id, channel_id, send_at, interval_seconds, message, delivery_failures, disabled
                 FROM scheduled_announcements
                 WHERE guild_id = ?
                 ORDER BY send_at ASC
@@ -415,10 +464,12 @@ class Community(commands.Cog):
             return
 
         lines = []
-        for announcement_id, channel_id, send_at, interval_seconds, message in rows:
+        for announcement_id, channel_id, send_at, interval_seconds, message, delivery_failures, disabled in rows:
             schedule = discord.utils.format_dt(discord.utils.parse_time(send_at), style="R")
             repeat_text = "" if interval_seconds is None else f" every `{interval_seconds}s`"
-            lines.append(f"`{announcement_id}` • <#{channel_id}> • {schedule}{repeat_text}\n{message[:120]}")
+            status_text = " • paused" if disabled else ""
+            failure_text = "" if not delivery_failures else f" • failures: {delivery_failures}"
+            lines.append(f"`{announcement_id}` • <#{channel_id}> • {schedule}{repeat_text}{status_text}{failure_text}\n{message[:120]}")
 
         embed = discord.Embed(title="Scheduled Announcements", description="\n\n".join(lines), color=discord.Color.blurple())
         await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -444,19 +495,20 @@ class Community(commands.Cog):
         async with self.bot.db.cursor() as cursor:
             await cursor.execute(
                 """
-                SELECT id, guild_id, channel_id, author_id, message, send_at, interval_seconds
+                SELECT id, guild_id, channel_id, author_id, message, send_at, interval_seconds, delivery_failures
                 FROM scheduled_announcements
-                WHERE send_at <= ?
+                WHERE disabled = 0 AND send_at <= ?
                 ORDER BY send_at ASC
                 """,
                 (now,),
             )
             rows = await cursor.fetchall()
 
-        for announcement_id, guild_id, channel_id, author_id, message, send_at, interval_seconds in rows:
+        for announcement_id, guild_id, channel_id, author_id, message, send_at, interval_seconds, delivery_failures in rows:
             guild = self.bot.get_guild(guild_id)
             channel = await self._resolve_channel(channel_id)
             delivered = False
+            failure_reason = None
             if guild is not None and channel is not None:
                 embed = discord.Embed(description=message, color=discord.Color.blurple())
                 embed.set_author(name=f"Scheduled announcement from {guild.name}")
@@ -468,6 +520,11 @@ class Community(commands.Cog):
                     delivered = True
                 except (discord.Forbidden, discord.HTTPException):
                     delivered = False
+                    failure_reason = "failed to send the scheduled announcement in the configured channel"
+            elif guild is None:
+                failure_reason = "the target guild is unavailable to the bot"
+            else:
+                failure_reason = "the configured announcement channel is unavailable"
 
             async with self.bot.db.cursor() as cursor:
                 if delivered and interval_seconds:
@@ -475,11 +532,43 @@ class Community(commands.Cog):
                     while next_time <= discord.utils.utcnow():
                         next_time += timedelta(seconds=interval_seconds)
                     await cursor.execute(
-                        "UPDATE scheduled_announcements SET send_at = ? WHERE id = ?",
+                        """
+                        UPDATE scheduled_announcements
+                        SET send_at = ?, delivery_failures = 0, disabled = 0, last_error = NULL
+                        WHERE id = ?
+                        """,
                         (next_time.isoformat(), announcement_id),
                     )
                 elif delivered:
                     await cursor.execute("DELETE FROM scheduled_announcements WHERE id = ?", (announcement_id,))
+                else:
+                    next_failures = delivery_failures + 1
+                    if next_failures >= MAX_SCHEDULE_DELIVERY_FAILURES:
+                        await cursor.execute(
+                            """
+                            UPDATE scheduled_announcements
+                            SET delivery_failures = ?, disabled = 1, last_error = ?
+                            WHERE id = ?
+                            """,
+                            (next_failures, failure_reason, announcement_id),
+                        )
+                        if guild is not None:
+                            await self._log_to_modlog(
+                                guild,
+                                "Scheduled Announcement Disabled",
+                                f"Announcement `{announcement_id}` was paused after repeated delivery failures.\nReason: {failure_reason}",
+                                discord.Color.orange(),
+                            )
+                    else:
+                        retry_at = discord.utils.utcnow() + self.schedule_retry_delay(next_failures)
+                        await cursor.execute(
+                            """
+                            UPDATE scheduled_announcements
+                            SET send_at = ?, delivery_failures = ?, last_error = ?
+                            WHERE id = ?
+                            """,
+                            (retry_at.isoformat(), next_failures, failure_reason, announcement_id),
+                        )
             await self.bot.db.commit()
 
     @schedule_loop.before_loop
