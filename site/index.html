@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Milo | Community Operations for Discord</title>
+    <meta
+      name="description"
+      content="Milo is an open-source Discord bot for community support, moderation, reminders, announcements, and self-hosted operations."
+    />
+    <meta property="og:title" content="Milo | Community Operations for Discord" />
+    <meta
+      property="og:description"
+      content="An open-source Discord bot for community support, moderation, reminders, and operations."
+    />
+    <meta property="og:type" content="website" />
+    <meta name="theme-color" content="#3e78f2" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="page-noise" aria-hidden="true"></div>
+    <div class="site-shell">
+      <div class="announcement">
+        <span class="announcement-badge">New</span>
+        <p>Milo is an open-source Discord bot with docs, contributor guidance, and a self-hosted deployment model.</p>
+      </div>
+
+      <header class="topbar">
+        <a class="brand" href="#top" aria-label="Milo home">
+          <span class="brand-mark">M</span>
+          <span class="brand-text">Milo</span>
+        </a>
+        <nav class="topnav" aria-label="Primary">
+          <a href="#capabilities">Capabilities</a>
+          <a href="#quick-start">Quick Start</a>
+          <a href="#modules">Modules</a>
+          <a href="#docs">Docs</a>
+        </nav>
+        <a
+          class="nav-action"
+          href="https://github.com/msgaxzzz/Milo-discord-fun-bot"
+          target="_blank"
+          rel="noreferrer"
+        >
+          GitHub
+        </a>
+      </header>
+
+      <main id="top">
+        <section class="hero">
+          <div class="hero-copy animate-on-scroll">
+            <p class="eyebrow">Open-Source Discord Community Platform</p>
+            <h1>Run support, moderation, reminders, and server operations from one bot.</h1>
+            <p class="hero-text">
+              Milo is designed for open-source communities, study groups, and small servers that want self-hosted
+              tooling instead of a black-box bot. It combines moderation, announcements, reminders, AI support, and
+              server workflows in one compact codebase.
+            </p>
+            <div class="hero-actions">
+              <a
+                class="button button-primary"
+                href="https://github.com/msgaxzzz/Milo-discord-fun-bot"
+                target="_blank"
+                rel="noreferrer"
+              >
+                View Source
+              </a>
+              <a class="button button-secondary" href="#quick-start">Quick Start</a>
+            </div>
+            <div class="hero-metrics">
+              <article>
+                <span class="metric-value">242</span>
+                <span class="metric-label">GitHub stars</span>
+              </article>
+              <article>
+                <span class="metric-value">MIT</span>
+                <span class="metric-label">Open license</span>
+              </article>
+              <article>
+                <span class="metric-value">Py 3.9+</span>
+                <span class="metric-label">Runtime target</span>
+              </article>
+            </div>
+          </div>
+
+          <div class="hero-visual animate-on-scroll">
+            <div class="hero-window">
+              <div class="window-bar">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+              <div class="window-body">
+                <aside class="window-sidebar">
+                  <p class="sidebar-label">Workspace</p>
+                  <ul>
+                    <li class="is-active">Community</li>
+                    <li>Moderation</li>
+                    <li>AI Support</li>
+                    <li>Reminders</li>
+                    <li>Docs</li>
+                  </ul>
+                </aside>
+                <div class="window-main">
+                  <div class="window-card window-card-hero">
+                    <p class="window-kicker">Server overview</p>
+                    <h2>Keep daily operations readable and predictable.</h2>
+                    <p>
+                      Welcome flows, scheduled announcements, AI chat controls, moderation rules, and recurring
+                      reminders all live in one maintainable bot.
+                    </p>
+                  </div>
+                  <div class="window-grid">
+                    <article class="window-card">
+                      <p class="window-kicker">AI Chat</p>
+                      <strong>Per-server controls</strong>
+                      <span>Cooldowns, role rules, channel rules, usage caps</span>
+                    </article>
+                    <article class="window-card">
+                      <p class="window-kicker">Moderation</p>
+                      <strong>Warnings and automod</strong>
+                      <span>Invite filter, link filter, bad words, mod log</span>
+                    </article>
+                    <article class="window-card">
+                      <p class="window-kicker">Community</p>
+                      <strong>Announcements and reminders</strong>
+                      <span>Scheduled messages, recurring reminders, AFK state</span>
+                    </article>
+                    <article class="window-card">
+                      <p class="window-kicker">Hosting</p>
+                      <strong>Self-hosted stack</strong>
+                      <span>discord.py, SQLite, aiohttp, Pages for public docs</span>
+                    </article>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="trust-strip animate-on-scroll">
+          <span>Self-hosted first</span>
+          <span>Community-maintained</span>
+          <span>Documentation included</span>
+          <span>SQLite-backed</span>
+          <span>Per-guild isolation</span>
+        </section>
+
+        <section class="section" id="capabilities">
+          <div class="section-heading animate-on-scroll">
+            <p class="eyebrow">Capabilities</p>
+            <h2>The layout is inspired by modern bot product sites, but the product story stays Milo’s.</h2>
+          </div>
+          <div class="capability-grid">
+            <article class="capability-card animate-on-scroll capability-card-primary">
+              <div class="card-icon">AI</div>
+              <h3>AI-Assisted Support</h3>
+              <p>Optional chat with model allowlists, web search, daily caps, and per-server policy controls.</p>
+            </article>
+            <article class="capability-card animate-on-scroll">
+              <div class="card-icon">MOD</div>
+              <h3>Moderation</h3>
+              <p>Warnings, invite filters, link filters, blocked words, and mod-log-aware workflows.</p>
+            </article>
+            <article class="capability-card animate-on-scroll">
+              <div class="card-icon">OPS</div>
+              <h3>Community Operations</h3>
+              <p>Welcome flows, goodbye messages, scheduled announcements, reminders, and server utility commands.</p>
+            </article>
+            <article class="capability-card animate-on-scroll">
+              <div class="card-icon">OSS</div>
+              <h3>Open Source by Default</h3>
+              <p>MIT licensed, contributor docs included, and small enough for maintainers to actually extend.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section section-panel animate-on-scroll" id="quick-start">
+          <div class="section-heading section-heading-inline">
+            <div>
+              <p class="eyebrow">Quick Start</p>
+              <h2>Get a project page, public docs, and the bot itself online fast.</h2>
+            </div>
+            <p class="section-copy">
+              The homepage is designed like a product landing page, while the repo still contains the operational docs
+              maintainers need.
+            </p>
+          </div>
+          <div class="quick-grid">
+            <div class="quick-card">
+              <p class="quick-label">Run Milo locally</p>
+              <pre><button class="copy-btn" aria-label="Copy code">Copy</button><code>git clone https://github.com/msgaxzzz/Milo-discord-fun-bot.git
+cd Milo-discord-fun-bot
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python3 main.py</code></pre>
+            </div>
+            <div class="quick-steps">
+              <article>
+                <span>01</span>
+                <div>
+                  <h3>Clone the repository</h3>
+                  <p>Start from the public repo and configure local secrets with `.env` or local config.</p>
+                </div>
+              </article>
+              <article>
+                <span>02</span>
+                <div>
+                  <h3>Configure runtime secrets</h3>
+                  <p>Set your Discord token and any optional API keys before starting the bot process.</p>
+                </div>
+              </article>
+              <article>
+                <span>03</span>
+                <div>
+                  <h3>Extend the bot by module</h3>
+                  <p>Commands are split into cogs, so moderation, reminders, and AI features remain easy to evolve.</p>
+                </div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="modules">
+          <div class="section-heading animate-on-scroll">
+            <p class="eyebrow">Core Modules</p>
+            <h2>Organized like a real product, not just a command dump.</h2>
+          </div>
+          <div class="module-grid">
+            <article class="module-card animate-on-scroll">
+              <h3>Community Layer</h3>
+              <p>Welcome and goodbye flows, scheduled announcements, reminders, AFK handling, and help surfaces.</p>
+              <ul>
+                <li>Announcements and recurring reminders</li>
+                <li>Welcome and mod-log-aware events</li>
+                <li>Server-facing utility commands</li>
+              </ul>
+            </article>
+            <article class="module-card animate-on-scroll">
+              <h3>Moderation Layer</h3>
+              <p>Policies for safer communities without turning the bot into a full enterprise panel.</p>
+              <ul>
+                <li>Warnings and warning history</li>
+                <li>Invite and link filtering</li>
+                <li>Bad-word checks and whitelist channels</li>
+              </ul>
+            </article>
+            <article class="module-card animate-on-scroll">
+              <h3>Support Layer</h3>
+              <p>AI chat, configuration controls, optional web search, and operational constraints per server.</p>
+              <ul>
+                <li>Per-guild policies and cooldowns</li>
+                <li>Model allowlists and usage caps</li>
+                <li>Context isolation between users</li>
+              </ul>
+            </article>
+          </div>
+        </section>
+
+        <section class="section section-panel" id="docs">
+          <div class="section-heading animate-on-scroll">
+            <p class="eyebrow">Docs and Links</p>
+            <h2>Public entry points for contributors, reviewers, and server maintainers.</h2>
+          </div>
+          <div class="docs-grid">
+            <a
+              class="docs-card animate-on-scroll"
+              href="https://github.com/msgaxzzz/Milo-discord-fun-bot/blob/main/README.md"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <span class="docs-tag">Overview</span>
+              <h3>README</h3>
+              <p>Project summary, setup flow, feature direction, and deployment notes.</p>
+            </a>
+            <a
+              class="docs-card animate-on-scroll"
+              href="https://github.com/msgaxzzz/Milo-discord-fun-bot/blob/main/docs/commands.md"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <span class="docs-tag">Reference</span>
+              <h3>Commands</h3>
+              <p>Full command reference across AI chat, moderation, reminders, economy, and farming.</p>
+            </a>
+            <a
+              class="docs-card animate-on-scroll"
+              href="https://github.com/msgaxzzz/Milo-discord-fun-bot/blob/main/docs/deployment.md"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <span class="docs-tag">Ops</span>
+              <h3>Deployment</h3>
+              <p>Long-running process expectations, storage notes, and practical hosting guidance.</p>
+            </a>
+            <a
+              class="docs-card animate-on-scroll"
+              href="https://github.com/msgaxzzz/Milo-discord-fun-bot/blob/main/CONTRIBUTING.md"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <span class="docs-tag">Community</span>
+              <h3>Contributing</h3>
+              <p>Contribution flow, review expectations, and repo-level collaboration guidelines.</p>
+            </a>
+          </div>
+        </section>
+
+        <section class="section faq-section">
+          <div class="section-heading animate-on-scroll">
+            <p class="eyebrow">FAQ</p>
+            <h2>Short answers for reviewers and maintainers.</h2>
+          </div>
+          <div class="faq-list">
+            <article class="faq-item animate-on-scroll">
+              <h3>Is Milo only a fun bot?</h3>
+              <p>No. Entertainment features exist, but the stronger product story is community support and operations.</p>
+            </article>
+            <article class="faq-item animate-on-scroll">
+              <h3>Does Milo require a hosted backend?</h3>
+              <p>No. The bot runs as a self-hosted long-lived process and does not require a hosted SaaS backend.</p>
+            </article>
+            <article class="faq-item animate-on-scroll">
+              <h3>Who should use it?</h3>
+              <p>Open-source communities, study groups, volunteer-run servers, and maintainers who need practical tooling.</p>
+            </article>
+            <article class="faq-item animate-on-scroll">
+              <h3>Why this UI direction?</h3>
+              <p>It presents Milo like a maintainable technical product with docs and modules, instead of a random bot homepage.</p>
+            </article>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer animate-on-scroll">
+        <div>
+          <p class="footer-title">Milo</p>
+          <p>Milo is a community-maintained, self-hosted open-source Discord bot.</p>
+        </div>
+        <div class="footer-links">
+          <a href="https://github.com/msgaxzzz/Milo-discord-fun-bot" target="_blank" rel="noreferrer">GitHub</a>
+          <a href="https://milo-discord-bot.menice.dev" target="_blank" rel="noreferrer">Project Site</a>
+          <a href="https://github.com/msgaxzzz/Milo-discord-fun-bot/issues" target="_blank" rel="noreferrer">Issues</a>
+        </div>
+      </footer>
+    </div>
+    <script src="./script.js"></script>
+  </body>
+</html>
