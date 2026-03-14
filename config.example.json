@@ -1,0 +1,13 @@
+{
+  "DISCORD_TOKEN": "your_discord_token_here",
+  "OPENAI_API_KEY": "your_openai_api_key_here",
+  "OPENAI_API_BASE": "https://api.openai.com/v1",
+  "ALLOW_USER_KEYS": true,
+  "DEFAULT_CHAT_MODEL": "gpt-4o-mini",
+  "ALLOWED_CHAT_MODELS": [
+    "gpt-4o-mini",
+    "gpt-4o"
+  ],
+  "GOOGLE_API_KEY": "your_google_api_key_here",
+  "GOOGLE_CSE_ID": "your_custom_search_engine_id_here"
+}

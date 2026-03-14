@@ -15,6 +15,7 @@ echo --------------------------------------------------
 :: ---------------- Variables ----------------
 set "REPO_URL=https://github.com/msgaxzzz/Milo-discord-fun-bot.git"
 set "DIR_NAME=Milo-discord-fun-bot"
+set "VENV_DIR=.venv"
 
 :: Check if git exists
 where git >nul 2>&1
@@ -24,7 +25,8 @@ if errorlevel 1 (
     exit /b 1
 )
 
-:: Clone repo if not exist
+if exist "main.py" if exist "requirements.txt" goto use_current_dir
+
 if not exist "%DIR_NAME%" (
     echo Cloning repository from %REPO_URL%...
     git clone "%REPO_URL%"
@@ -33,15 +35,25 @@ if not exist "%DIR_NAME%" (
         pause
         exit /b 1
     )
+    cd "%DIR_NAME%" || (
+        echo Cannot enter directory %DIR_NAME%.
+        pause
+        exit /b 1
+    )
 ) else (
-    echo Directory %DIR_NAME% already exists, skipping clone.
+    echo Directory %DIR_NAME% already exists, using it.
+    cd "%DIR_NAME%" || (
+        echo Cannot enter directory %DIR_NAME%.
+        pause
+        exit /b 1
+    )
 )
+goto after_dir_setup
 
-cd "%DIR_NAME%" || (
-    echo Cannot enter directory %DIR_NAME%.
-    pause
-    exit /b 1
-)
+:use_current_dir
+echo Installer is running inside an existing Milo checkout.
+
+:after_dir_setup
 
 :: Find Python 3.9+
 set PYTHON_BIN=
@@ -69,17 +81,21 @@ if not defined PYTHON_BIN (
 )
 echo Found Python: %PYTHON_BIN%
 
-:: Check pip
-%PYTHON_BIN% -m pip --version >nul 2>&1
-if errorlevel 1 (
-    echo pip not found, installing pip...
-    %PYTHON_BIN% -m ensurepip --upgrade
+:: Create virtual environment
+if not exist "%VENV_DIR%" (
+    echo Creating virtual environment in %CD%\%VENV_DIR%...
+    %PYTHON_BIN% -m venv "%VENV_DIR%"
+    if errorlevel 1 (
+        echo Failed to create virtual environment. Install the Python venv component and retry.
+        pause
+        exit /b 1
+    )
 )
 
 :: Install requirements
 echo Installing dependencies from requirements.txt...
-%PYTHON_BIN% -m pip install --upgrade pip
-%PYTHON_BIN% -m pip install -r requirements.txt
+"%CD%\%VENV_DIR%\Scripts\python.exe" -m pip install --upgrade pip
+"%CD%\%VENV_DIR%\Scripts\python.exe" -m pip install -r requirements.txt
 
 :: Create database directory
 if not exist database (
@@ -145,7 +161,9 @@ echo }
 echo config.json created successfully.
 echo Milo Bot installation completed!
 echo Please verify config.json and run:
-echo   %PYTHON_BIN% main.py
+echo   %CD%\%VENV_DIR%\Scripts\python.exe main.py
+echo Or activate the virtual environment first:
+echo   %VENV_DIR%\Scripts\activate
 echo Update log: https://github.com/msgaxzzz/Milo-discord-fun-bot/blob/main/CHANGELOG.md
 
 pause

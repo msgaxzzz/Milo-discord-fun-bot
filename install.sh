@@ -18,23 +18,27 @@ NC='\033[0m'
 
 REPO_URL="https://github.com/msgaxzzz/Milo-discord-fun-bot.git"
 DIR_NAME="Milo-discord-fun-bot"
+VENV_DIR=".venv"
 
-if [ ! -d "$DIR_NAME" ]; then
+if [ -f "main.py" ] && [ -f "requirements.txt" ]; then
+    echo -e "${YELLOW}Installer is running inside an existing Milo checkout.${NC}"
+elif [ ! -d "$DIR_NAME" ]; then
     echo -e "${BLUE}Cloning repository from $REPO_URL...${NC}"
     git clone "$REPO_URL" || { echo -e "${RED}Failed to clone repository.${NC}"; exit 1; }
+    cd "$DIR_NAME" || { echo -e "${RED}Cannot enter directory $DIR_NAME.${NC}"; exit 1; }
 else
-    echo -e "${YELLOW}Directory $DIR_NAME already exists, skipping clone.${NC}"
+    echo -e "${YELLOW}Directory $DIR_NAME already exists, using it.${NC}"
+    cd "$DIR_NAME" || { echo -e "${RED}Cannot enter directory $DIR_NAME.${NC}"; exit 1; }
 fi
 
-cd "$DIR_NAME" || { echo -e "${RED}Cannot enter directory $DIR_NAME.${NC}"; exit 1; }
+PROJECT_DIR=$(pwd)
 
 echo -e "${BLUE}Checking for compatible Python versions (>=3.9)...${NC}"
 PYTHON_BIN=""
 
 for PY in python3.13 python3.12 python3.11 python3.10 python3.9 python3; do
     if command -v $PY &> /dev/null; then
-        VERSION=$($PY -c "import sys; v=sys.version_info; print(f'{v.major}.{v.minor}')")
-        if (( $(echo "$VERSION >= 3.9" | bc -l) )); then
+        if $PY -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 9) else 1)"; then
             PYTHON_BIN=$PY
             break
         fi
@@ -48,15 +52,20 @@ fi
 
 echo -e "${GREEN}Found Python: $PYTHON_BIN${NC}"
 
-echo -e "${BLUE}Checking for pip...${NC}"
-if ! ($PYTHON_BIN -m pip --version &> /dev/null); then
-    echo -e "${YELLOW}pip not found, installing pip...${NC}"
-    $PYTHON_BIN -m ensurepip --upgrade
+echo -e "${BLUE}Creating virtual environment in ${PROJECT_DIR}/${VENV_DIR}...${NC}"
+if [ ! -d "$VENV_DIR" ]; then
+    $PYTHON_BIN -m venv "$VENV_DIR" || {
+        echo -e "${RED}Failed to create virtual environment. Install the Python venv package and retry.${NC}"
+        exit 1
+    }
 fi
 
+VENV_PYTHON="$PROJECT_DIR/$VENV_DIR/bin/python"
+VENV_PIP="$PROJECT_DIR/$VENV_DIR/bin/pip"
+
 echo -e "${BLUE}Installing dependencies from requirements.txt...${NC}"
-$PYTHON_BIN -m pip install --upgrade pip
-$PYTHON_BIN -m pip install -r requirements.txt
+$VENV_PYTHON -m pip install --upgrade pip
+$VENV_PIP install -r requirements.txt
 
 echo -e "${BLUE}Creating database directory...${NC}"
 mkdir -p database
@@ -122,5 +131,7 @@ EOF
 echo -e "${GREEN}config.json created successfully.${NC}"
 echo -e "${GREEN}Milo Bot installation completed!${NC}"
 echo -e "${YELLOW}Please verify config.json and run:${NC}"
-echo -e "  ${BLUE}$PYTHON_BIN main.py${NC}"
+echo -e "  ${BLUE}$VENV_PYTHON main.py${NC}"
+echo -e "${YELLOW}You can also activate the environment first:${NC}"
+echo -e "  ${BLUE}source $VENV_DIR/bin/activate${NC}"
 echo -e "${BLUE}Update log: https://github.com/msgaxzzz/Milo-discord-fun-bot/blob/main/CHANGELOG.md${NC}"

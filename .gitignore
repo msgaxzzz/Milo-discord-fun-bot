@@ -1,3 +1,10 @@
 config.json
+.env
+.env.*
+!.env.example
 __pycache__/
 *.py[cod]
+.wrangler/
+.venv/
+database/*.db
+/Milo-discord-fun-bot/

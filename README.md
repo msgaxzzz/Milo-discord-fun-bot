@@ -108,19 +108,6 @@ See:
 - [Security Policy](./SECURITY.md)
 - [Support](./SUPPORT.md)
 
-## Project Site
-
-The repository includes a static project site in [`site/`](./site) that is intended for Cloudflare Pages deployment.
-
-Typical deployment flow:
-
-```bash
-wrangler pages project create milo-discord-bot
-wrangler pages deploy site --project-name milo-discord-bot
-```
-
-The site is designed to act as a public project page, documentation index, and Cloudflare-facing overview for the bot.
-
 ## Contributors
 
 Milo is community-maintained. See the full contributor list on GitHub:
