@@ -1,29 +1,31 @@
 # Milo
 
-Milo is an open-source Discord bot built with `discord.py`, `aiosqlite`, and `aiohttp`.
+Milo is an open-source Discord bot for community operations, support, and lightweight moderation, built with `discord.py`, `aiosqlite`, and `aiohttp`.
 
 It combines:
 
-- AI chat with optional web search
-- Per-server economy and farming systems
-- Games, media, and social interaction commands
-- Utility and moderation helpers
+- AI-assisted community help with optional web search
+- Moderation, announcements, reminders, and server utility workflows
+- Per-server progression systems and engagement features
+- Self-hosted infrastructure for small online communities
 
 ## Why This Project Exists
 
-Milo is meant to be a practical community bot rather than a single-purpose demo. The project focuses on features that are useful in real Discord servers:
+Milo is intended to be a practical bot for real online communities, not a one-command demo or a closed hosted service. The project focuses on tools that help small servers stay active, organized, and easier to support:
 
-- lightweight AI-assisted conversations
-- server-local progression systems
-- simple moderation helpers
-- low-friction entertainment and engagement commands
+- AI-assisted help for common community questions
+- reminders, announcements, and lightweight operations workflows
+- simple moderation and safety helpers
+- self-hosted engagement features that communities can adapt to their own needs
 
-## Status
+## Project Model
 
 - License: MIT
 - Runtime target: Python 3.9+
 - Storage: SQLite
 - Secrets: environment variables first, then local `config.json`
+- Distribution: free and open source
+- Maintenance model: community-maintained and intended for self-hosted, non-closed deployments
 
 ## Quick Start
 
@@ -41,23 +43,23 @@ Fill in `.env` before starting the bot.
 
 ## Who It Is For
 
-- personal Discord servers
-- small online communities
-- friend groups that want a self-hosted bot
+- open-source project servers
+- small online communities that need self-hosted tooling
+- learning groups, support communities, and volunteer-run servers
 - maintainers who want a compact `discord.py` codebase to extend
 
 ## What Milo Includes
 
 - AI chat with configurable model allowlists and optional Google Custom Search
 - Chat safety controls for cooldowns, channel rules, role allowlists, and daily usage caps
+- Utility commands for persisted reminders, recurring reminders, AFK management, help, and server info
+- Community tooling for welcome messages, leave messages, scheduled announcements, and mod logs
+- Moderation tooling for warnings, invite/link filters, bad word filters, and channel whitelists
 - Economy commands with per-guild balances and leaderboards
 - Admin tools for managing server economy balances
 - Farming progression tied to the server economy
 - Games like `/guess`, `/tictactoe`, `/roll`, and `/rps`
 - Fun and media commands for polls, memes, avatars, GIF interactions, and image generation
-- Utility commands for persisted reminders, recurring reminders, AFK management, help, moderation, and server info
-- Community tooling for welcome messages, leave messages, scheduled announcements, and mod logs
-- Moderation tooling for warnings, invite/link filters, bad word filters, and channel whitelists
 
 ## Important Behavior
 
@@ -105,6 +107,26 @@ See:
 - [Code of Conduct](./CODE_OF_CONDUCT.md)
 - [Security Policy](./SECURITY.md)
 - [Support](./SUPPORT.md)
+
+## Project Site
+
+The repository includes a static project site in [`site/`](./site) that is intended for Cloudflare Pages deployment.
+
+Typical deployment flow:
+
+```bash
+wrangler pages project create milo-discord-bot
+wrangler pages deploy site --project-name milo-discord-bot
+```
+
+The site is designed to act as a public project page, documentation index, and Cloudflare-facing overview for the bot.
+
+## Contributors
+
+Milo is community-maintained. See the full contributor list on GitHub:
+
+- [Contributors Graph](https://github.com/msgaxzzz/Milo-discord-fun-bot/graphs/contributors)
+- Sascha Buehrle ([`@saschabuehrle`](https://github.com/saschabuehrle)) has submitted community fixes for interaction message formatting and poll permission handling through pull requests [#39](https://github.com/msgaxzzz/Milo-discord-fun-bot/pull/39) and [#40](https://github.com/msgaxzzz/Milo-discord-fun-bot/pull/40).
 
 ## Installation Scripts
 
