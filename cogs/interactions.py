@@ -37,7 +37,7 @@ class Interactions(commands.Cog):
             return
 
         message = (
-            self_message
+            self_message.format(user=interaction.user.mention, target=member.mention)
             if member == interaction.user
             else other_message.format(user=interaction.user.mention, target=member.mention)
         )
