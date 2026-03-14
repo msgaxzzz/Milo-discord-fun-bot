@@ -7,25 +7,21 @@
     <meta name="robots" content="noindex" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
-      rel="stylesheet"
-    />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <div class="site-shell">
-      <main class="section">
-        <div class="hero-copy">
-          <p class="eyebrow">404</p>
-          <h1>That page does not exist.</h1>
-          <p class="hero-text">Return to the Milo project site or open the repository documentation directly.</p>
-          <div class="hero-actions">
-            <a class="button button-primary" href="./">Back to Site</a>
-            <a class="button button-secondary" href="https://github.com/msgaxzzz/Milo-discord-fun-bot" target="_blank" rel="noreferrer">Open GitHub</a>
-          </div>
+    <div class="glow glow-1" aria-hidden="true"></div>
+    <div class="site-shell" style="display:flex;align-items:center;justify-content:center;min-height:100vh;padding:0">
+      <div style="text-align:center">
+        <p class="label">404</p>
+        <h1 style="font-size:clamp(2rem,5vw,3rem);margin-top:12px;background:linear-gradient(to bottom right,#fff 40%,#a1a1aa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Page not found.</h1>
+        <p style="color:var(--text-secondary);margin-top:12px;font-size:0.95rem">The page you're looking for doesn't exist.</p>
+        <div class="hero-actions" style="justify-content:center;margin-top:28px">
+          <a class="btn btn-primary" href="./">Back to Site</a>
+          <a class="btn btn-ghost" href="https://github.com/msgaxzzz/Milo-discord-fun-bot" target="_blank" rel="noreferrer">GitHub</a>
         </div>
-      </main>
+      </div>
     </div>
   </body>
 </html>

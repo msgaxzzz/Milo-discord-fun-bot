@@ -1,72 +1,81 @@
 document.addEventListener('DOMContentLoaded', () => {
-  // Intersection Observer for scroll animations
-  const observerOptions = {
-    root: null,
-    rootMargin: '0px',
-    threshold: 0.1
+  const revealTargets = document.querySelectorAll('.animate-on-scroll');
+
+  // Scroll reveal
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.08 });
+
+    revealTargets.forEach((el) => observer.observe(el));
+  } else {
+    revealTargets.forEach((el) => el.classList.add('is-visible'));
+  }
+
+  // Copy button
+  const copyBtn = document.querySelector('.copy-btn');
+  const codeBlock = document.querySelector('.card-code code');
+  const copyText = async (text) => {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+
+    const fallback = document.createElement('textarea');
+    fallback.value = text;
+    fallback.setAttribute('readonly', '');
+    fallback.style.position = 'absolute';
+    fallback.style.left = '-9999px';
+    document.body.appendChild(fallback);
+    fallback.select();
+    document.execCommand('copy');
+    fallback.remove();
   };
 
-  const observer = new IntersectionObserver((entries, observer) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('is-visible');
-        observer.unobserve(entry.target); // Only animate once
-      }
-    });
-  }, observerOptions);
-
-  const animatedElements = document.querySelectorAll('.animate-on-scroll');
-  animatedElements.forEach(el => observer.observe(el));
-
-  const copyBtn = document.querySelector('.copy-btn');
-  const codeBlock = document.querySelector('.quick-card code');
+  const setCopyState = (label, stateClass) => {
+    copyBtn.innerText = label;
+    copyBtn.classList.toggle('copied', stateClass === 'copied');
+    copyBtn.classList.toggle('copy-failed', stateClass === 'failed');
+  };
 
   if (copyBtn && codeBlock) {
-    copyBtn.addEventListener('click', () => {
-      navigator.clipboard.writeText(codeBlock.innerText).then(() => {
-        const originalText = copyBtn.innerText;
-        copyBtn.innerText = 'Copied!';
-        copyBtn.classList.add('copied');
-        
-        setTimeout(() => {
-          copyBtn.innerText = originalText;
-          copyBtn.classList.remove('copied');
-        }, 2000);
-      }).catch(err => {
-        console.error('Failed to copy: ', err);
-      });
+    copyBtn.addEventListener('click', async () => {
+      try {
+        await copyText(codeBlock.innerText);
+        setCopyState('Copied!', 'copied');
+      } catch (error) {
+        console.error('Failed to copy quick start snippet.', error);
+        setCopyState('Copy failed', 'failed');
+      }
+
+      window.setTimeout(() => {
+        setCopyState('Copy', '');
+      }, 2000);
     });
   }
 
-  // Scroll Spy Logic
+  // Scroll spy
   const sections = document.querySelectorAll('section[id]');
   const navLinks = document.querySelectorAll('.topnav a');
-
-  const scrollSpy = () => {
+  const updateActiveLink = () => {
     let current = '';
-    const scrollY = window.scrollY;
-    
-    // Offset for fixed header (approx topbar height + padding)
-    const headerOffset = 150;
 
-    sections.forEach(section => {
-      const sectionTop = section.offsetTop;
-      const sectionHeight = section.clientHeight;
-      // Check if we are within the section
-      if (scrollY >= (sectionTop - headerOffset)) {
+    sections.forEach((section) => {
+      if (window.scrollY >= section.offsetTop - 120) {
         current = section.getAttribute('id');
       }
     });
 
-    navLinks.forEach(link => {
-      link.classList.remove('active');
-      const href = link.getAttribute('href');
-      // Simple check if href matches #id
-      if (href === `#${current}`) {
-        link.classList.add('active');
-      }
+    navLinks.forEach((link) => {
+      link.classList.toggle('active', link.getAttribute('href') === `#${current}`);
     });
   };
 
-  window.addEventListener('scroll', scrollSpy);
+  updateActiveLink();
+  window.addEventListener('scroll', updateActiveLink, { passive: true });
 });
