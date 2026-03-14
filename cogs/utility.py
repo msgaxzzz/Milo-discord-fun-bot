@@ -1,6 +1,7 @@
 import platform
 import re
 import sys
+import time
 from datetime import timedelta
 from typing import Optional, Union
 
@@ -202,7 +203,17 @@ class Utility(commands.Cog):
     @app_commands.checks.cooldown(1, 10, key=lambda i: i.user.id)
     async def ping_raw(self, interaction: discord.Interaction):
         ws_latency = self.bot.latency * 1000
-        rest_latency = round(self.bot.http.latency * 1000, 2) if self.bot.http.latency else "N/A"
+        rest_latency = "N/A"
+
+        session = getattr(self.bot, "http_session", None)
+        if session and not session.closed:
+            started = time.perf_counter()
+            try:
+                async with session.get("https://discord.com/api/v10/gateway") as response:
+                    if 200 <= response.status < 500:
+                        rest_latency = f"{(time.perf_counter() - started) * 1000:.2f}"
+            except Exception:
+                rest_latency = "N/A"
 
         embed = discord.Embed(title="🏓 Pong!", color=discord.Color.blue())
         embed.add_field(name="WebSocket Latency", value=f"{ws_latency:.2f}ms", inline=False)
