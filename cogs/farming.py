@@ -196,7 +196,7 @@ class Farming(commands.Cog):
             await interaction.response.send_message("The economy system is currently unavailable.", ephemeral=True)
             return
 
-        async with economy_cog.balance_lock:
+        async with economy_cog._guild_lock(guild_id):
             user_balance = await economy_cog._get_or_create_user_unlocked(guild_id, interaction.user.id)
             if user_balance < crop_data["cost"]:
                 await interaction.response.send_message(
@@ -274,7 +274,7 @@ class Farming(commands.Cog):
             xp_needed = self.get_xp_for_next_level(current_level)
             level_up_message += f"\n🎉 **LEVEL UP! You are now Farm Level {current_level}!** 🎉"
 
-        async with economy_cog.balance_lock:
+        async with economy_cog._guild_lock(guild_id):
             user_balance = await economy_cog._get_or_create_user_unlocked(guild_id, interaction.user.id)
             async with self.bot.db.cursor() as cursor:
                 await cursor.execute(
@@ -314,7 +314,7 @@ class Farming(commands.Cog):
             await interaction.response.send_message("The economy system is currently unavailable.", ephemeral=True)
             return
 
-        async with economy_cog.balance_lock:
+        async with economy_cog._guild_lock(guild_id):
             user_balance = await economy_cog._get_or_create_user_unlocked(guild_id, interaction.user.id)
             if user_balance < upgrade_data["cost"]:
                 await interaction.response.send_message(

@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import discord
 from discord import app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 
 logger = logging.getLogger(__name__)
@@ -34,6 +34,10 @@ class Chat(commands.Cog):
         self.conversation_last_used: Dict[Tuple[Any, ...], discord.utils.utcnow] = {}
         self.load_config()
         self.bot.loop.create_task(self.setup_database())
+        self._prune_cooldowns.start()
+
+    def cog_unload(self):
+        self._prune_cooldowns.cancel()
 
     def load_config(self):
         config = getattr(self.bot, "config", {})
@@ -45,6 +49,13 @@ class Chat(commands.Cog):
         self.google_api_key = config.get("GOOGLE_API_KEY")
         self.google_cse_id = config.get("GOOGLE_CSE_ID")
         self.enable_web_search = bool(self.google_api_key and self.google_cse_id)
+
+    @tasks.loop(minutes=10)
+    async def _prune_cooldowns(self):
+        now = discord.utils.utcnow()
+        expired = [key for key, ts in self.chat_cooldowns.items() if (now - ts) > COOLDOWN_RETENTION]
+        for key in expired:
+            del self.chat_cooldowns[key]
 
     async def setup_database(self):
         async with self.bot.db.cursor() as cursor:

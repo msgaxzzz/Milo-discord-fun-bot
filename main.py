@@ -35,7 +35,7 @@ try:
     import aiosqlite
     import discord
     from discord import app_commands
-    from discord.ext import commands
+    from discord.ext import commands, tasks
 
     from config_loader import load_runtime_config
 except ModuleNotFoundError as exc:
@@ -61,6 +61,7 @@ SPAM_THRESHOLD = 5
 SPAM_TIMEFRAME = 7  # seconds
 MESSAGE_LOG_BATCH_SIZE = 50
 MESSAGE_LOG_FLUSH_SECONDS = 2
+MESSAGE_LOG_RETENTION_DAYS = 30
 
 
 config = load_runtime_config()
@@ -110,8 +111,12 @@ class FunBot(commands.Bot):
                 )
             """
             )
+            await cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp)"
+            )
         await self.db.commit()
         self.message_log_task = asyncio.create_task(self._message_log_worker())
+        self._prune_message_logs_task.start()
 
         # Load all cogs
         for filename in os.listdir(COGS_FOLDER):
@@ -224,6 +229,7 @@ class FunBot(commands.Bot):
         await self.process_commands(message)
 
     async def close(self):
+        self._prune_message_logs_task.cancel()
         if self.message_log_task:
             await self.message_log_queue.put(None)
             try:
@@ -236,6 +242,19 @@ class FunBot(commands.Bot):
             await self.db.close()
             print("Database connection closed.")
         await super().close()
+
+    @tasks.loop(hours=24)
+    async def _prune_message_logs_task(self):
+        if not self.db:
+            return
+        cutoff = (discord.utils.utcnow() - datetime.timedelta(days=MESSAGE_LOG_RETENTION_DAYS)).isoformat()
+        async with self.db.cursor() as cursor:
+            await cursor.execute("DELETE FROM messages WHERE timestamp < ?", (cutoff,))
+        await self.db.commit()
+
+    @_prune_message_logs_task.before_loop
+    async def _before_prune_message_logs(self):
+        await self.wait_until_ready()
 
 
 bot = FunBot(config)

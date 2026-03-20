@@ -10,8 +10,10 @@ from discord.ext import commands, tasks
 DEFAULT_WELCOME_MESSAGE = "Welcome to {guild}, {member.mention}!"
 DEFAULT_GOODBYE_MESSAGE = "{member} left {guild}."
 SCHEDULE_POLL_SECONDS = 30
+SCHEDULE_BATCH_SIZE = 20
 TEMPLATE_FIELDS = {"member", "member.mention", "guild"}
 MAX_SCHEDULE_DELIVERY_FAILURES = 5
+MAX_ANNOUNCEMENT_LENGTH = 4000
 SCHEDULE_RETRY_BASE_SECONDS = 300
 SCHEDULE_RETRY_MAX_SECONDS = 21600
 
@@ -362,6 +364,13 @@ class Community(commands.Cog):
     @app_commands.checks.has_permissions(manage_guild=True)
     @app_commands.describe(message="Announcement content.")
     async def announce(self, interaction: discord.Interaction, message: str):
+        if len(message) > MAX_ANNOUNCEMENT_LENGTH:
+            await interaction.response.send_message(
+                f"Announcement content is too long ({len(message)} chars). Maximum is {MAX_ANNOUNCEMENT_LENGTH}.",
+                ephemeral=True,
+            )
+            return
+
         settings = await self.get_settings(interaction.guild_id)
         target_channel_id = settings["announcement_channel_id"] or interaction.channel_id
         channel = await self._resolve_channel(target_channel_id)
@@ -415,6 +424,12 @@ class Community(commands.Cog):
         if delay_seconds is None:
             await interaction.response.send_message("Invalid `when` value. Use formats like `10m`, `2h`, or `1d`.", ephemeral=True)
             return
+        if len(message) > MAX_ANNOUNCEMENT_LENGTH:
+            await interaction.response.send_message(
+                f"Announcement content is too long ({len(message)} chars). Maximum is {MAX_ANNOUNCEMENT_LENGTH}.",
+                ephemeral=True,
+            )
+            return
         interval_seconds = parse_duration(repeat) if repeat else None
         if repeat and interval_seconds is None:
             await interaction.response.send_message("Invalid repeat interval. Use formats like `1h` or `1d`.", ephemeral=True)
@@ -449,7 +464,7 @@ class Community(commands.Cog):
         async with self.bot.db.cursor() as cursor:
             await cursor.execute(
                 """
-                SELECT id, channel_id, send_at, interval_seconds, message, delivery_failures, disabled
+                SELECT id, channel_id, send_at, interval_seconds, message, delivery_failures, disabled, last_error
                 FROM scheduled_announcements
                 WHERE guild_id = ?
                 ORDER BY send_at ASC
@@ -464,14 +479,52 @@ class Community(commands.Cog):
             return
 
         lines = []
-        for announcement_id, channel_id, send_at, interval_seconds, message, delivery_failures, disabled in rows:
+        for announcement_id, channel_id, send_at, interval_seconds, message, delivery_failures, disabled, last_error in rows:
             schedule = discord.utils.format_dt(discord.utils.parse_time(send_at), style="R")
             repeat_text = "" if interval_seconds is None else f" every `{interval_seconds}s`"
             status_text = " • paused" if disabled else ""
             failure_text = "" if not delivery_failures else f" • failures: {delivery_failures}"
-            lines.append(f"`{announcement_id}` • <#{channel_id}> • {schedule}{repeat_text}{status_text}{failure_text}\n{message[:120]}")
+            error_text = "" if not last_error else f"\nError: {last_error[:100]}"
+            lines.append(f"`{announcement_id}` • <#{channel_id}> • {schedule}{repeat_text}{status_text}{failure_text}\n{message[:120]}{error_text}")
 
         embed = discord.Embed(title="Scheduled Announcements", description="\n\n".join(lines), color=discord.Color.blurple())
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @announcements.command(name="diagnose", description="Show details and error info for a scheduled announcement.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    @app_commands.describe(announcement_id="The announcement id from /announcements list.")
+    async def diagnose_scheduled(self, interaction: discord.Interaction, announcement_id: int):
+        async with self.bot.db.cursor() as cursor:
+            await cursor.execute(
+                """
+                SELECT id, channel_id, author_id, message, send_at, interval_seconds,
+                       delivery_failures, disabled, last_error
+                FROM scheduled_announcements
+                WHERE id = ? AND guild_id = ?
+                """,
+                (announcement_id, interaction.guild_id),
+            )
+            row = await cursor.fetchone()
+
+        if not row:
+            await interaction.response.send_message("Scheduled announcement not found.", ephemeral=True)
+            return
+
+        ann_id, channel_id, author_id, message, send_at, interval_seconds, failures, disabled, last_error = row
+        embed = discord.Embed(
+            title=f"Announcement `{ann_id}` Details",
+            color=discord.Color.orange() if disabled else discord.Color.blurple(),
+        )
+        embed.add_field(name="Channel", value=f"<#{channel_id}>", inline=True)
+        embed.add_field(name="Scheduled By", value=f"<@{author_id}>", inline=True)
+        embed.add_field(name="Next Send", value=discord.utils.format_dt(discord.utils.parse_time(send_at), style="F"), inline=False)
+        if interval_seconds:
+            embed.add_field(name="Repeat Interval", value=f"{interval_seconds}s", inline=True)
+        embed.add_field(name="Status", value="Paused (too many failures)" if disabled else "Active", inline=True)
+        embed.add_field(name="Delivery Failures", value=str(failures), inline=True)
+        if last_error:
+            embed.add_field(name="Last Error", value=last_error[:1024], inline=False)
+        embed.add_field(name="Content", value=message[:1024], inline=False)
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @announcements.command(name="cancel", description="Cancel a scheduled announcement.")
@@ -499,8 +552,9 @@ class Community(commands.Cog):
                 FROM scheduled_announcements
                 WHERE disabled = 0 AND send_at <= ?
                 ORDER BY send_at ASC
+                LIMIT ?
                 """,
-                (now,),
+                (now, SCHEDULE_BATCH_SIZE),
             )
             rows = await cursor.fetchall()
 

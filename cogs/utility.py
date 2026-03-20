@@ -12,7 +12,9 @@ from discord.ext import commands, tasks
 
 REMINDER_LIMIT_SECONDS = 30 * 24 * 60 * 60
 REMINDER_POLL_SECONDS = 30
+REMINDER_BATCH_SIZE = 20
 MAX_REMINDER_DELIVERY_FAILURES = 5
+MAX_REMINDER_TEXT_LENGTH = 1500
 REMINDER_RETRY_BASE_SECONDS = 300
 REMINDER_RETRY_MAX_SECONDS = 21600
 
@@ -409,30 +411,50 @@ class Utility(commands.Cog):
 
     @help_group.command(name="all", description="Lists all available commands.")
     async def help_all(self, interaction: discord.Interaction):
+        embeds = []
         embed = discord.Embed(
             title="Bot Commands",
             description="Full command list grouped by cog.",
             color=discord.Color.blurple(),
         )
+        embed_char_count = len(embed.title or "") + len(embed.description or "")
+        field_count = 0
 
         for cog_name in sorted(self.bot.cogs.keys()):
             cog = self.bot.get_cog(cog_name)
-            commands_list = [
-                f"`/{self._get_full_command_name(command)}`"
-                for command in cog.get_app_commands()
-                for command in [command]
-            ]
             expanded = []
             for command in cog.get_app_commands():
                 if isinstance(command, app_commands.Group):
-                    expanded.extend(f"`/{self._get_full_command_name(subcommand)}`" for subcommand in self._iter_group_commands(command))
+                    expanded.extend(f"`/{self._get_full_command_name(sub)}`" for sub in self._iter_group_commands(command))
                 else:
                     expanded.append(f"`/{self._get_full_command_name(command)}`")
 
-            if expanded:
-                embed.add_field(name=cog_name, value=" ".join(expanded[:25]), inline=False)
+            if not expanded:
+                continue
 
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+            value = " ".join(expanded)
+            if len(value) > 1024:
+                value = value[:1021] + "..."
+
+            field_chars = len(cog_name) + len(value)
+            if field_count >= 25 or embed_char_count + field_chars > 6000:
+                embeds.append(embed)
+                embed = discord.Embed(
+                    title="Bot Commands (continued)",
+                    color=discord.Color.blurple(),
+                )
+                embed_char_count = len(embed.title or "")
+                field_count = 0
+
+            embed.add_field(name=cog_name, value=value, inline=False)
+            embed_char_count += field_chars
+            field_count += 1
+
+        embeds.append(embed)
+
+        await interaction.response.send_message(embed=embeds[0], ephemeral=True)
+        for extra in embeds[1:]:
+            await interaction.followup.send(embed=extra, ephemeral=True)
 
     def _iter_group_commands(self, group: app_commands.Group):
         stack = list(group.commands)
@@ -492,6 +514,13 @@ class Utility(commands.Cog):
             await interaction.response.send_message("You cannot set a reminder for more than 30 days.", ephemeral=True)
             return
 
+        if len(reason) > MAX_REMINDER_TEXT_LENGTH:
+            await interaction.response.send_message(
+                f"Reminder text is too long ({len(reason)} chars). Maximum is {MAX_REMINDER_TEXT_LENGTH}.",
+                ephemeral=True,
+            )
+            return
+
         remind_at = discord.utils.utcnow() + timedelta(seconds=seconds)
         reminder_id = await self.create_reminder(
             interaction.user.id,
@@ -518,6 +547,13 @@ class Utility(commands.Cog):
             return
         if seconds > REMINDER_LIMIT_SECONDS:
             await interaction.response.send_message("Recurring interval cannot be more than 30 days.", ephemeral=True)
+            return
+
+        if len(reason) > MAX_REMINDER_TEXT_LENGTH:
+            await interaction.response.send_message(
+                f"Reminder text is too long ({len(reason)} chars). Maximum is {MAX_REMINDER_TEXT_LENGTH}.",
+                ephemeral=True,
+            )
             return
 
         remind_at = discord.utils.utcnow() + timedelta(seconds=seconds)
@@ -678,8 +714,9 @@ class Utility(commands.Cog):
                 FROM reminders
                 WHERE disabled = 0 AND remind_at <= ?
                 ORDER BY remind_at ASC
+                LIMIT ?
                 """,
-                (now,),
+                (now, REMINDER_BATCH_SIZE),
             )
             reminders = await cursor.fetchall()
 

@@ -319,11 +319,15 @@ class Moderation(commands.Cog):
             return
         if not isinstance(message.author, discord.Member):
             return
+        if not isinstance(message.channel, (discord.TextChannel, discord.Thread)):
+            return
         if message.author.guild_permissions.manage_messages:
             return
 
         settings = await self.get_automod_settings(message.guild.id)
-        if message.channel.id in settings["whitelist_channel_ids"]:
+        whitelisted = settings["whitelist_channel_ids"]
+        parent_id = getattr(message.channel, "parent_id", None)
+        if message.channel.id in whitelisted or (parent_id and parent_id in whitelisted):
             return
 
         lowered = message.content.lower()

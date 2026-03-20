@@ -34,8 +34,15 @@ SLOTS_MIN_BET = 10
 class Economy(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.balance_lock = asyncio.Lock()
+        self._guild_locks: dict[int, asyncio.Lock] = {}
         self.bot.loop.create_task(self.setup_database())
+
+    def _guild_lock(self, guild_id: int) -> asyncio.Lock:
+        lock = self._guild_locks.get(guild_id)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._guild_locks[guild_id] = lock
+        return lock
 
     async def setup_database(self):
         columns = []
@@ -103,11 +110,11 @@ class Economy(commands.Cog):
             return result[0]
 
     async def get_or_create_user(self, guild_id: int, user_id: int) -> int:
-        async with self.balance_lock:
+        async with self._guild_lock(guild_id):
             return await self._get_or_create_user_unlocked(guild_id, user_id)
 
     async def change_balance(self, guild_id: int, user_id: int, delta: int) -> int:
-        async with self.balance_lock:
+        async with self._guild_lock(guild_id):
             balance = await self._get_or_create_user_unlocked(guild_id, user_id)
             new_balance = balance + delta
             if new_balance < 0:
@@ -122,7 +129,7 @@ class Economy(commands.Cog):
             return new_balance
 
     async def transfer_balance(self, guild_id: int, sender_id: int, receiver_id: int, amount: int) -> tuple[int, int]:
-        async with self.balance_lock:
+        async with self._guild_lock(guild_id):
             sender_balance = await self._get_or_create_user_unlocked(guild_id, sender_id)
             if sender_balance < amount:
                 raise ValueError("You do not have enough coins to make this transfer.")
@@ -141,7 +148,7 @@ class Economy(commands.Cog):
             return sender_balance - amount, receiver_balance + amount
 
     async def set_balance(self, guild_id: int, user_id: int, amount: int) -> int:
-        async with self.balance_lock:
+        async with self._guild_lock(guild_id):
             await self._get_or_create_user_unlocked(guild_id, user_id)
             async with self.bot.db.cursor() as cursor:
                 await cursor.execute(
@@ -369,7 +376,7 @@ class Economy(commands.Cog):
             await interaction.response.send_message("Bots are not part of the economy.", ephemeral=True)
             return
 
-        async with self.balance_lock:
+        async with self._guild_lock(guild_id):
             robber_balance = await self._get_or_create_user_unlocked(guild_id, robber_id)
             victim_balance = await self._get_or_create_user_unlocked(guild_id, victim_id)
 
@@ -493,7 +500,7 @@ class Economy(commands.Cog):
     @app_commands.checks.has_permissions(administrator=True)
     async def admin_reset_guild(self, interaction: discord.Interaction):
         guild_id = self._get_guild_id(interaction)
-        async with self.balance_lock:
+        async with self._guild_lock(guild_id):
             async with self.bot.db.cursor() as cursor:
                 await cursor.execute("DELETE FROM users WHERE guild_id = ?", (guild_id,))
             await self.bot.db.commit()
